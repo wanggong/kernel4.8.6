@@ -469,6 +469,7 @@ inline void print_irqtrace_events(struct task_struct *curr)
 /*
  * We are only interested in hardirq on/off events:
  */
+//当开关中断时调用下面两个函数，计算时间 
 void trace_hardirqs_on(void)
 {
 	if (!preempt_trace() && irq_trace())

@@ -3971,6 +3971,52 @@ static DEFINE_MUTEX(ftrace_cmd_mutex);
  * Currently we only register ftrace commands from __init, so mark this
  * __init too.
  */
+/******************************************************************************
+注册用于解析向set_ftrace_filter写入的cmd，目前注册的模块有
+ftrace模块
+    mod:用于解析mod的命令
+trace模块
+    snapshot:解析snapshot命令
+trace_events模块
+    enable_event
+    disable_event
+Trace_functions模块  
+    traceoff
+    traceon
+    stacktrace
+    dump
+    cpudump    
+
+使用方式
+对于module的
+   echo 'write*:mod:ext3' > set_ftrace_filter
+   echo '!writeback*:mod:ext3' >> set_ftrace_filter
+   echo '!*:mod:!ext3' >> set_ftrace_filter
+   echo '!*:mod:*' >> set_ftrace_filter
+   echo '*write*:mod:!*' >> set_ftrace_filter
+   echo '*write*:mod:*snd*' >> set_ftrace_filter
+
+对于function的traceoff和traceon
+   echo '__schedule_bug:traceoff:5' > set_ftrace_filter
+   echo '__schedule_bug:traceoff' > set_ftrace_filter
+   echo '!__schedule_bug:traceoff:0' > set_ftrace_filter
+   echo '!__schedule_bug:traceoff' > set_ftrace_filter
+
+trace模块
+   echo 'native_flush_tlb_others:snapshot' > set_ftrace_filter
+   echo 'native_flush_tlb_others:snapshot:1' > set_ftrace_filter
+   echo '!native_flush_tlb_others:snapshot' > set_ftrace_filter
+   echo '!native_flush_tlb_others:snapshot:0' > set_ftrace_filter
+
+event
+    <function>:enable_event:<system>:<event>[:count]
+    <function>:disable_event:<system>:<event>[:count]
+    echo 'try_to_wake_up:enable_event:sched:sched_switch:2' > =set_ftrace_filter
+    echo '!try_to_wake_up:enable_event:sched:sched_switch:0' > set_ftrace_filter
+    echo '!schedule:disable_event:sched:sched_switch' > set_ftrace_filter
+   
+**************************************************************************/
+
 __init int register_ftrace_command(struct ftrace_func_command *cmd)
 {
 	struct ftrace_func_command *p;

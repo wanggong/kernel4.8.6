@@ -389,6 +389,7 @@ struct trace_option_dentry {
  * @set_flag: signals one of your private flags changed (trace_options file)
  * @flags: your private flags
  */
+//代表一个tracer 
 struct tracer {
 	const char		*name;
 	int			(*init)(struct trace_array *tr);

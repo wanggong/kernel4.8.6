@@ -1462,6 +1462,21 @@ static void __init apply_trace_boot_options(void);
  *
  * Register a new plugin tracer.
  */
+/*********************************************************************
+向系统注册一个tracer
+目前注册的tracer有
+Blktrace
+Trace_branch
+Trace_functions
+Trace_functions_graph
+irqsoff
+preemptoff
+preemptirqsoff
+Trace_mmiotrace
+wakeup_tracer
+wakeup_rt_tracer
+wakeup_dl_tracer
+*********************************************************************/
 int __init register_tracer(struct tracer *type)
 {
 	struct tracer *t;
