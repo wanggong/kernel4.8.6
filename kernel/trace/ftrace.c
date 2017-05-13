@@ -1170,10 +1170,13 @@ bool is_ftrace_trampoline(unsigned long addr)
 	return ret;
 }
 
+//管理function trace的_mount地址内容
 struct ftrace_page {
 	struct ftrace_page	*next;
+//为function _mount分配的空间，包含所有函数的_mount的地址	
 	struct dyn_ftrace	*records;
 	int			index;
+//空间的大小	
 	int			size;
 };
 
@@ -2472,7 +2475,7 @@ struct dyn_ftrace *ftrace_rec_iter_record(struct ftrace_rec_iter *iter)
 	return &iter->pg->records[iter->index];
 }
 
- //将do_mount的函数调用替换成nop指令
+ //将do_mount的jump替换成nop指令
 static int
 ftrace_code_disable(struct module *mod, struct dyn_ftrace *rec)
 {
@@ -2873,6 +2876,7 @@ ops_references_rec(struct ftrace_ops *ops, struct dyn_ftrace *rec)
 	return 1;
 }
 
+//将所有函数入口的_mount的jump指令替换成nop指令
 static int ftrace_update_code(struct module *mod, struct ftrace_page *new_pgs)
 {
 	struct ftrace_page *pg;
@@ -2927,6 +2931,7 @@ static int ftrace_update_code(struct module *mod, struct ftrace_page *new_pgs)
 	return 0;
 }
 
+//为_mount的入口分配空间
 static int ftrace_allocate_records(struct ftrace_page *pg, int count)
 {
 	int order;
@@ -2945,6 +2950,7 @@ static int ftrace_allocate_records(struct ftrace_page *pg, int count)
 		order--;
 
  again:
+//分配具体的空间 	
 	pg->records = (void *)__get_free_pages(GFP_KERNEL | __GFP_ZERO, order);
 
 	if (!pg->records) {
@@ -3522,6 +3528,7 @@ enter_record(struct ftrace_hash *hash, struct dyn_ftrace *rec, int clear_filter)
 	return ret;
 }
 
+//使用正则表达式判断rec和func_g是否匹配
 static int
 ftrace_match_record(struct dyn_ftrace *rec, struct ftrace_glob *func_g,
 		struct ftrace_glob *mod_g, int exclude_mod)
@@ -4546,6 +4553,8 @@ int ftrace_graph_notrace_count;
 unsigned long ftrace_graph_funcs[FTRACE_GRAPH_MAX_FUNCS] __read_mostly;
 unsigned long ftrace_graph_notrace_funcs[FTRACE_GRAPH_MAX_FUNCS] __read_mostly;
 
+//表示要使用graph function跟踪的内容
+//table是要跟踪的函数的_mount地址的列表
 struct ftrace_graph_data {
 	unsigned long *table;
 	size_t size;
@@ -4698,6 +4707,7 @@ ftrace_graph_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
+//使用正则表达式查找符合buffer(一个string)的函数的地址，返回在array数组中
 static int
 ftrace_set_func(unsigned long *array, int *idx, int size, char *buffer)
 {
@@ -4783,6 +4793,8 @@ ftrace_graph_write(struct file *file, const char __user *ubuf,
 		mutex_lock(&graph_lock);
 
 		/* we allow only one expression at a time */
+		
+//使用正则表达式查找符合buffer(一个string)的函数的地址，返回在table数组中
 		ret = ftrace_set_func(fgd->table, fgd->count, fgd->size,
 				      parser.buffer);
 
@@ -4931,6 +4943,7 @@ static int ftrace_process_locs(struct module *mod,
 
 	p = start;
 	pg = start_pg;
+//将所有的地址保存到rec->ip中	
 	while (p < end) {
 		addr = ftrace_call_adjust(*p++);
 		/*
@@ -5919,6 +5932,7 @@ static struct notifier_block ftrace_suspend_notifier = {
 	.notifier_call = ftrace_suspend_notifier_call,
 };
 
+//设置进入函数和退出函数要调用的钩子函数
 int register_ftrace_graph(trace_func_graph_ret_t retfunc,
 			trace_func_graph_ent_t entryfunc)
 {
