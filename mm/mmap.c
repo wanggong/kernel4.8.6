@@ -222,10 +222,18 @@ SYSCALL_DEFINE1(brk, unsigned long, brk)
 	oldbrk = PAGE_ALIGN(mm->brk);
 	if (oldbrk == newbrk)
 		goto set_brk;
-//应用可能会释放一些内存，这里进行unmap
-//有个以为是如果用户先申请了很大的一块内存，然后有申请一块较小的内存，然后
-//将之前申请的大内存释放，因为后申请的小内存还是使用，所以无法释放，最后释放的
-//大块内存如何释放呢?
+/*****************************************************
+下面if的代码是缩减brk的大小，对应的情形如下:
+void *p = malloc(4k);
+free(p);
+在free(p)时，libc可能会缩减brk，就会进入下面的这个代码
+
+考虑另外一种情形:
+void *p1 = malloc(400k);
+void *p2 = malloc(4k);
+free(p1);
+这个时间brk是不能调整的，该怎么处理呢?
+******************************************************/
 	/* Always allow shrinking brk. */
 	if (brk <= mm->brk) {
 		if (!do_munmap(mm, newbrk, oldbrk-newbrk))
@@ -234,6 +242,7 @@ SYSCALL_DEFINE1(brk, unsigned long, brk)
 	}
 
 	/* Check against existing mmap mappings. */
+//newbrk是我们要新增的最后的地址，所以在(oldbrk,newbrk)之间是不可能会存在vm的    
 	if (find_vma_intersection(mm, oldbrk, newbrk+PAGE_SIZE))
 		goto out;
 
@@ -262,15 +271,19 @@ static long vma_compute_subtree_gap(struct vm_area_struct *vma)
 {
 	unsigned long max, subtree_gap;
 	max = vma->vm_start;
+//计算当前节点与其前面的一个节点的空洞的大小
+//注意这里并没有计算当前节点与右侧节点之间空洞的大小，因为当右侧节点计算时会计算它与
+//左侧节点(即当前节点的空洞的大小)，所以这里不需要计算右侧节点，有点绕，要想想
 	if (vma->vm_prev)
 		max -= vma->vm_prev->vm_end;
-//left和vm_prev代表的不是同一个吗?    
+//左子树空洞的最大值    
 	if (vma->vm_rb.rb_left) {
 		subtree_gap = rb_entry(vma->vm_rb.rb_left,
 				struct vm_area_struct, vm_rb)->rb_subtree_gap;
 		if (subtree_gap > max)
 			max = subtree_gap;
 	}
+ //右子树空洞的最大值      
 	if (vma->vm_rb.rb_right) {
 		subtree_gap = rb_entry(vma->vm_rb.rb_right,
 				struct vm_area_struct, vm_rb)->rb_subtree_gap;
@@ -389,6 +402,54 @@ static void validate_mm(struct mm_struct *mm)
 RB_DECLARE_CALLBACKS(static, vma_gap_callbacks, struct vm_area_struct, vm_rb,
 		     unsigned long, rb_subtree_gap, vma_compute_subtree_gap)  ;//;wgz added
 
+//宏处理之后如下(为看起来方便，一些attr被删除):
+#if 1 
+static inline void vma_gap_callbacks_propagate(struct rb_node *rb, struct rb_node *stop)
+{
+    while (rb != stop) {
+        struct vm_area_struct *node = ( {
+                                            const typeof(((struct vm_area_struct *)0)->vm_rb) *__mptr = (rb);
+                                            (struct vm_area_struct *)((char *)__mptr - __builtin_offsetof(struct vm_area_struct, vm_rb));
+                                        });
+        unsigned long augmented = vma_compute_subtree_gap(node);
+        if (node->rb_subtree_gap == augmented) {
+            break;
+        }
+        node->rb_subtree_gap = augmented;
+        rb = ((struct rb_node *)((&node->vm_rb)->__rb_parent_color & ~3));
+    }
+}
+static inline void vma_gap_callbacks_copy(struct rb_node *rb_old, struct rb_node *rb_new)
+{
+    struct vm_area_struct *old = ( {
+                                       const typeof(((struct vm_area_struct *)0)->vm_rb) *__mptr = (rb_old);
+                                       (struct vm_area_struct *)((char *)__mptr - __builtin_offsetof(struct vm_area_struct, vm_rb));
+                                   });
+    struct vm_area_struct *new = ( {
+                                       const typeof(((struct vm_area_struct *)0)->vm_rb) *__mptr = (rb_new);
+                                       (struct vm_area_struct *)((char *)__mptr - __builtin_offsetof(struct vm_area_struct, vm_rb));
+                                   });
+    new->rb_subtree_gap = old->rb_subtree_gap;
+}
+static void vma_gap_callbacks_rotate(struct rb_node *rb_old, struct rb_node *rb_new)
+{
+    struct vm_area_struct *old = ( {
+                                       const typeof(((struct vm_area_struct *)0)->vm_rb) *__mptr = (rb_old);
+                                       (struct vm_area_struct *)((char *)__mptr - __builtin_offsetof(struct vm_area_struct, vm_rb));
+                                   });
+    struct vm_area_struct *new = ( {
+                                       const typeof(((struct vm_area_struct *)0)->vm_rb) *__mptr = (rb_new);
+                                       (struct vm_area_struct *)((char *)__mptr - __builtin_offsetof(struct vm_area_struct, vm_rb));
+                                   });
+    new->rb_subtree_gap = old->rb_subtree_gap;
+    old->rb_subtree_gap = vma_compute_subtree_gap(old);
+}
+static const struct rb_augment_callbacks vma_gap_callbacks = { vma_gap_callbacks_propagate, vma_gap_callbacks_copy, vma_gap_callbacks_rotate };
+#endif
+
+
+
+
 /*
  * Update augmented rbtree rb_subtree_gap values after vma->vm_start or
  * vma->vm_prev->vm_end values changed, without modifying the vma's position
@@ -443,6 +504,10 @@ static void vma_rb_erase(struct vm_area_struct *vma, struct rb_root *root)
  * The entire update must be protected by exclusive mmap_sem and by
  * the root anon_vma's mutex.
  */
+ 
+//将vma的vma->anon_vma_chain链上的anon_vma_chain全部从anon_vma的rb_root中脱离
+//注意此时在anon_vma_chain中仍然有执行anon_vma的指针，即anon_vma_chain->anon_vma,
+//这为以后重新加入做好了准备
 static inline void
 anon_vma_interval_tree_pre_update_vma(struct vm_area_struct *vma)
 {
@@ -476,7 +541,14 @@ static int find_vma_links(struct mm_struct *mm, unsigned long addr,
 
 		__rb_parent = *__rb_link;
 		vma_tmp = rb_entry(__rb_parent, struct vm_area_struct, vm_rb);
-
+/*********************************************
+判断线段(s1,e1)和(s2,e2)是否相交
+if(e1 > s2&& e2 > s1){
+相交
+}else{
+不相交
+}
+*********************************************/
 		if (vma_tmp->vm_end > addr) {
 			/* Fail if an existing vma overlaps the area */
  //(start,end)和vma_tmp有重叠，返回NOMEM           
@@ -642,6 +714,8 @@ __vma_unlink(struct mm_struct *mm, struct vm_area_struct *vma,
  * are necessary.  The "insert" vma (if any) is to be inserted
  * before we drop the necessary locks.
  */
+
+//不知道干嘛的
 int vma_adjust(struct vm_area_struct *vma, unsigned long start,
 	unsigned long end, pgoff_t pgoff, struct vm_area_struct *insert)
 {

@@ -78,7 +78,7 @@ void ftrace_destroy_function_files(struct trace_array *tr)
 	kfree(tr->ops);
 	tr->ops = NULL;
 }
-
+//将所有的动态trace的函数入口rec->ip的指令替换成bl ftrace_caller或nop
 static int function_trace_init(struct trace_array *tr)
 {
 	ftrace_func_t func;
@@ -92,6 +92,7 @@ static int function_trace_init(struct trace_array *tr)
 		return -ENOMEM;
 
 	/* Currently only the global instance can do stack tracing */
+//func是在函数被执行到时要调用的函数，此函数的作用是想ringbuffer中写入信息    
 	if (tr->flags & TRACE_ARRAY_FL_GLOBAL &&
 	    func_flags.val & TRACE_FUNC_OPT_STACK)
 		func = function_stack_trace_call;
@@ -205,7 +206,7 @@ static struct tracer_flags func_flags = {
 	.val = 0, /* By default: all flags disabled */
 	.opts = func_opts
 };
-
+//将所有的动态trace的函数入口rec->ip的指令替换成bl ftrace_caller或nop
 static void tracing_start_function_trace(struct trace_array *tr)
 {
 	tr->function_enabled = 0;
@@ -252,6 +253,19 @@ func_set_flag(struct trace_array *tr, u32 old_flags, u32 bit, int set)
 	return 0;
 }
 
+/***************************wgz function trace的执行过程****************
+ 1. echo function > current_trace,这个时候会执行init函数，即function_trace_init
+    这个函数首先将所有函数入口的指令bl mcount(在系统启动时被替换成nop)替换成指令
+    bl ftrace_caller,这个是所有function trace的入口，包括graph trace，ftrace_caller
+    定义在文件entry-ftrace.S中。
+    然后将ftrace_caller函数中的地址为ftrace_call的指令替换成function trace准备被调用的
+    函数，一般是ftrace_ops_no_ops，即bl ftrace_ops_no_ops。见函数ftrace_update_ftrace_func
+ 2. 当函数执行时，首先ftrace_caller会被调用，然后ftrace_ops_no_ops会调用，在这个函数中会
+    检查(调用ftrace_ops_test)我们的地址是否在列表中(通过echo xxx > set_ftrace_filter设置的),
+    如果在就调用tracer->func=function_trace_call将msg写入到ringbuffer中。
+
+graph function的情况和这个差不多，不过是更复杂一些而已 
+********************************************************************************/
 static struct tracer function_trace __tracer_data =
 {
 	.name		= "function",

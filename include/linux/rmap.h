@@ -24,6 +24,18 @@
  * the anon_vma object itself: we're guaranteed no page can be
  * pointing to this anon_vma once its vma list is empty.
  */
+/******************************************************************
+这里理解还有点难度，整理一下如下
+需求:
+1. 每个页面只能指向一个anon_vma
+2. 当fock一个进程时(A->B)，使用cow技术，使得一个页面属于两个进程
+这就要求在A和B需要都能指向同一个anon_vma，于是添加了一个数据结构anon_vma_chain，
+这个数据结构是挂在anon_vma->rb_root上，每一个都在不同的进程中。这就解决了问题2.
+3. 按照上面的是下，同一个vm_area_struct就需要指向多个anon_vma，这个通过
+vm_area_struct->anon_vma_chain连接到anon_vma_chain->same_vma来实现
+另外，目前的设计是每个vm_area_struct都有一个anon_vma
+******************************************************************/
+
 struct anon_vma {
 	struct anon_vma *root;		/* Root of this anon_vma tree */
 	struct rw_semaphore rwsem;	/* W: modification, R: walking the list */
@@ -55,7 +67,7 @@ struct anon_vma {
 	 * is serialized by a system wide lock only visible to
 	 * mm_take_all_locks() (mm_all_locks_mutex).
 	 */
-//链接anon_vma_chain	 
+//链接anon_vma_chain->rb,表示同一个anon_vma在不同的进程中	 
 	struct rb_root rb_root;	/* Interval tree of private "related" vmas */
 };
 
@@ -75,8 +87,9 @@ struct anon_vma {
 struct anon_vma_chain {
 	struct vm_area_struct *vma;
 	struct anon_vma *anon_vma;
-    //链接到vma->anon_vma_chain
+//链接到vma->anon_vma_chain
 	struct list_head same_vma;   /* locked by mmap_sem & page_table_lock */
+//链接anon_vma->rb_root,表示同一个anon_vma在不同的进程中	     
 	struct rb_node rb;			/* locked by anon_vma->rwsem */
 	unsigned long rb_subtree_last;
 #ifdef CONFIG_DEBUG_VM_RB

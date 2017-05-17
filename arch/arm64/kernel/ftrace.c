@@ -51,6 +51,9 @@ static int ftrace_modify_code(unsigned long pc, u32 old, u32 new,
 /*
  * Replace tracer function in ftrace_caller()
  */
+//将ftrace_caller中的地址是ftrace_call的指令替换成bl func 
+//见:entry-ftrace.S
+//这个一般在打开function跟踪是调用到
 int ftrace_update_ftrace_func(ftrace_func_t func)
 {
 	unsigned long pc;
@@ -66,6 +69,7 @@ int ftrace_update_ftrace_func(ftrace_func_t func)
 /*
  * Turn on the call to ftrace_caller() in instrumented function
  */
+//将rec->ip处的指令替换成bl addr；及替换成转移到addr的指令 
 int ftrace_make_call(struct dyn_ftrace *rec, unsigned long addr)
 {
 	unsigned long pc = rec->ip;
@@ -93,6 +97,7 @@ int ftrace_make_nop(struct module *mod, struct dyn_ftrace *rec,
 	return ftrace_modify_code(pc, old, new, true);
 }
 
+//将所有的动态trace的函数入口rec->ip的指令替换成bl ftrace_caller或nop
 void arch_ftrace_update_code(int command)
 {
 	ftrace_modify_all_code(command);
@@ -156,6 +161,8 @@ void prepare_ftrace_return(unsigned long *parent, unsigned long self_addr,
  * Turn on/off the call to ftrace_graph_caller() in ftrace_caller()
  * depending on @enable.
  */
+//将ftrace_caller中的地址是ftrace_graph_call的指令替换成bl ftrace_graph_caller 
+//见:entry-ftrace.S
 static int ftrace_modify_graph_caller(bool enable)
 {
 	unsigned long pc = (unsigned long)&ftrace_graph_call;

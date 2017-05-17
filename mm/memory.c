@@ -3601,6 +3601,7 @@ static int handle_pte_fault(struct fault_env *fe)
 		}
 	}
 
+//这里可以看出，对于文件映射和anon的内存对fault的处理也是不同的。
 	if (!fe->pte) {
 		if (vma_is_anonymous(fe->vma))
 			return do_anonymous_page(fe);

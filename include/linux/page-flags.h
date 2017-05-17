@@ -77,12 +77,15 @@ enum pageflags {
 	PG_referenced,
 	PG_uptodate,
 	PG_dirty,
+//表示page被加入到了lru中	
 	PG_lru,
 	PG_active,
 	PG_slab,
 	PG_owner_priv_1,	/* Owner use. If pagecache, fs may use*/
 	PG_arch_1,
+//reserved，此类page是不能换出的	
 	PG_reserved,
+//表示此page的private字段是有内容的，例如fs会将buffer_head放在page的private字段	
 	PG_private,		/* If pagecache, has fs-private data */
 	PG_private_2,		/* If pagecache, has fs aux data */
 	PG_writeback,		/* Page is under writeback */
@@ -174,6 +177,7 @@ static __always_inline int PageCompound(struct page *page)
  * PF_NO_COMPOUND:
  *     the page flag is not relevant for compound pages.
  */
+#if 0
 #define PF_ANY(page, enforce)	page
 #define PF_HEAD(page, enforce)	compound_head(page)
 #define PF_NO_TAIL(page, enforce) ({					\
@@ -371,6 +375,457 @@ PAGEFLAG(Idle, idle, PF_ANY)
  * address_space which maps the page from disk; whereas "page_mapped"
  * refers to user virtual address space into which the page is mapped.
  */
+#else
+//宏的处理结果如下
+static inline   int PageLocked(struct page *page)
+{
+    return (__builtin_constant_p((PG_locked)) ? constant_test_bit((PG_locked), (&({ ((void)(sizeof((long)(0 && PageTail(page))))); compound_head(page);})->flags)) : variable_test_bit((PG_locked), (&({ ((void)(sizeof((long)(0 && PageTail(page))))); compound_head(page);})->flags)));
+}
+static inline   void __SetPageLocked(struct page *page)
+{
+    __set_bit(PG_locked, &({ ((void)(sizeof((long)(1 && PageTail(page))))); compound_head(page);})->flags);
+}
+static inline   void __ClearPageLocked(struct page *page)
+{
+    __clear_bit(PG_locked, &({ ((void)(sizeof((long)(1 && PageTail(page))))); compound_head(page);})->flags);
+}
+static inline   int PageError(struct page *page)
+{
+    return (__builtin_constant_p((PG_error)) ? constant_test_bit((PG_error), (&({ ((void)(sizeof((long)(0 && PageCompound(page))))); page;})->flags)) : variable_test_bit((PG_error), (&({ ((void)(sizeof((long)(0 && PageCompound(page))))); page;})->flags)));
+}
+static inline   void SetPageError(struct page *page)
+{
+    set_bit(PG_error, &({ ((void)(sizeof((long)(1 && PageCompound(page))))); page;})->flags);
+}
+static inline   void ClearPageError(struct page *page)
+{
+    clear_bit(PG_error, &({ ((void)(sizeof((long)(1 && PageCompound(page))))); page;})->flags);
+}
+static inline   int TestClearPageError(struct page *page)
+{
+    return test_and_clear_bit(PG_error, &({ ((void)(sizeof((long)(1 && PageCompound(page))))); page;})->flags);
+}
+static inline   int PageReferenced(struct page *page)
+{
+    return (__builtin_constant_p((PG_referenced)) ? constant_test_bit((PG_referenced), (&compound_head(page)->flags)) : variable_test_bit((PG_referenced), (&compound_head(page)->flags)));
+}
+static inline   void SetPageReferenced(struct page *page)
+{
+    set_bit(PG_referenced, &compound_head(page)->flags);
+}
+static inline   void ClearPageReferenced(struct page *page)
+{
+    clear_bit(PG_referenced, &compound_head(page)->flags);
+}
+static inline   int TestClearPageReferenced(struct page *page)
+{
+    return test_and_clear_bit(PG_referenced, &compound_head(page)->flags);
+}
+static inline   void __SetPageReferenced(struct page *page)
+{
+    __set_bit(PG_referenced, &compound_head(page)->flags);
+}
+static inline   int PageDirty(struct page *page)
+{
+    return (__builtin_constant_p((PG_dirty)) ? constant_test_bit((PG_dirty), (&compound_head(page)->flags)) : variable_test_bit((PG_dirty), (&compound_head(page)->flags)));
+}
+static inline   void SetPageDirty(struct page *page)
+{
+    set_bit(PG_dirty, &compound_head(page)->flags);
+}
+static inline   void ClearPageDirty(struct page *page)
+{
+    clear_bit(PG_dirty, &compound_head(page)->flags);
+}
+static inline   int TestSetPageDirty(struct page *page)
+{
+    return test_and_set_bit(PG_dirty, &compound_head(page)->flags);
+}
+static inline   int TestClearPageDirty(struct page *page)
+{
+    return test_and_clear_bit(PG_dirty, &compound_head(page)->flags);
+}
+static inline   void __ClearPageDirty(struct page *page)
+{
+    __clear_bit(PG_dirty, &compound_head(page)->flags);
+}
+static inline   int PageLRU(struct page *page)
+{
+    return (__builtin_constant_p((PG_lru)) ? constant_test_bit((PG_lru), (&compound_head(page)->flags)) : variable_test_bit((PG_lru), (&compound_head(page)->flags)));
+}
+static inline   void SetPageLRU(struct page *page)
+{
+    set_bit(PG_lru, &compound_head(page)->flags);
+}
+static inline   void ClearPageLRU(struct page *page)
+{
+    clear_bit(PG_lru, &compound_head(page)->flags);
+}
+static inline   void __ClearPageLRU(struct page *page)
+{
+    __clear_bit(PG_lru, &compound_head(page)->flags);
+}
+static inline   int PageActive(struct page *page)
+{
+    return (__builtin_constant_p((PG_active)) ? constant_test_bit((PG_active), (&compound_head(page)->flags)) : variable_test_bit((PG_active), (&compound_head(page)->flags)));
+}
+static inline   void SetPageActive(struct page *page)
+{
+    set_bit(PG_active, &compound_head(page)->flags);
+}
+static inline   void ClearPageActive(struct page *page)
+{
+    clear_bit(PG_active, &compound_head(page)->flags);
+}
+static inline   void __ClearPageActive(struct page *page)
+{
+    __clear_bit(PG_active, &compound_head(page)->flags);
+}
+static inline   int TestClearPageActive(struct page *page)
+{
+    return test_and_clear_bit(PG_active, &compound_head(page)->flags);
+}
+static inline   int PageSlab(struct page *page)
+{
+    return (__builtin_constant_p((PG_slab)) ? constant_test_bit((PG_slab), (&({ ((void)(sizeof((long)(0 && PageTail(page))))); compound_head(page);})->flags)) : variable_test_bit((PG_slab), (&({ ((void)(sizeof((long)(0 && PageTail(page))))); compound_head(page);})->flags)));
+}
+static inline   void __SetPageSlab(struct page *page)
+{
+    __set_bit(PG_slab, &({ ((void)(sizeof((long)(1 && PageTail(page))))); compound_head(page);})->flags);
+}
+static inline   void __ClearPageSlab(struct page *page)
+{
+    __clear_bit(PG_slab, &({ ((void)(sizeof((long)(1 && PageTail(page))))); compound_head(page);})->flags);
+}
+static inline   int PageSlobFree(struct page *page)
+{
+    return (__builtin_constant_p((PG_slob_free)) ? constant_test_bit((PG_slob_free), (&({ ((void)(sizeof((long)(0 && PageTail(page))))); compound_head(page);})->flags)) : variable_test_bit((PG_slob_free), (&({ ((void)(sizeof((long)(0 && PageTail(page))))); compound_head(page);})->flags)));
+}
+static inline   void __SetPageSlobFree(struct page *page)
+{
+    __set_bit(PG_slob_free, &({ ((void)(sizeof((long)(1 && PageTail(page))))); compound_head(page);})->flags);
+}
+static inline   void __ClearPageSlobFree(struct page *page)
+{
+    __clear_bit(PG_slob_free, &({ ((void)(sizeof((long)(1 && PageTail(page))))); compound_head(page);})->flags);
+}
+static inline   int PageChecked(struct page *page)
+{
+    return (__builtin_constant_p((PG_checked)) ? constant_test_bit((PG_checked), (&({ ((void)(sizeof((long)(0 && PageCompound(page))))); page;})->flags)) : variable_test_bit((PG_checked), (&({ ((void)(sizeof((long)(0 && PageCompound(page))))); page;})->flags)));
+}
+static inline   void SetPageChecked(struct page *page)
+{
+    set_bit(PG_checked, &({ ((void)(sizeof((long)(1 && PageCompound(page))))); page;})->flags);
+}
+static inline   void ClearPageChecked(struct page *page)
+{
+    clear_bit(PG_checked, &({ ((void)(sizeof((long)(1 && PageCompound(page))))); page;})->flags);
+}
+
+
+static inline   int PagePinned(struct page *page)
+{
+    return (__builtin_constant_p((PG_pinned)) ? constant_test_bit((PG_pinned), (&({ ((void)(sizeof((long)(0 && PageCompound(page))))); page;})->flags)) : variable_test_bit((PG_pinned), (&({ ((void)(sizeof((long)(0 && PageCompound(page))))); page;})->flags)));
+}
+static inline   void SetPagePinned(struct page *page)
+{
+    set_bit(PG_pinned, &({ ((void)(sizeof((long)(1 && PageCompound(page))))); page;})->flags);
+}
+static inline   void ClearPagePinned(struct page *page)
+{
+    clear_bit(PG_pinned, &({ ((void)(sizeof((long)(1 && PageCompound(page))))); page;})->flags);
+}
+static inline   int TestSetPagePinned(struct page *page)
+{
+    return test_and_set_bit(PG_pinned, &({ ((void)(sizeof((long)(1 && PageCompound(page))))); page;})->flags);
+}
+static inline   int TestClearPagePinned(struct page *page)
+{
+    return test_and_clear_bit(PG_pinned, &({ ((void)(sizeof((long)(1 && PageCompound(page))))); page;})->flags);
+}
+static inline   int PageSavePinned(struct page *page)
+{
+    return (__builtin_constant_p((PG_savepinned)) ? constant_test_bit((PG_savepinned), (&({ ((void)(sizeof((long)(0 && PageCompound(page))))); page;})->flags)) : variable_test_bit((PG_savepinned), (&({ ((void)(sizeof((long)(0 && PageCompound(page))))); page;})->flags)));
+}
+static inline   void SetPageSavePinned(struct page *page)
+{
+    set_bit(PG_savepinned, &({ ((void)(sizeof((long)(1 && PageCompound(page))))); page;})->flags);
+}
+static inline   void ClearPageSavePinned(struct page *page)
+{
+    clear_bit(PG_savepinned, &({ ((void)(sizeof((long)(1 && PageCompound(page))))); page;})->flags);
+};
+static inline   int PageForeign(struct page *page)
+{
+    return (__builtin_constant_p((PG_foreign)) ? constant_test_bit((PG_foreign), (&({ ((void)(sizeof((long)(0 && PageCompound(page))))); page;})->flags)) : variable_test_bit((PG_foreign), (&({ ((void)(sizeof((long)(0 && PageCompound(page))))); page;})->flags)));
+}
+static inline   void SetPageForeign(struct page *page)
+{
+    set_bit(PG_foreign, &({ ((void)(sizeof((long)(1 && PageCompound(page))))); page;})->flags);
+}
+static inline   void ClearPageForeign(struct page *page)
+{
+    clear_bit(PG_foreign, &({ ((void)(sizeof((long)(1 && PageCompound(page))))); page;})->flags);
+};
+
+static inline   int PageReserved(struct page *page)
+{
+    return (__builtin_constant_p((PG_reserved)) ? constant_test_bit((PG_reserved), (&({ ((void)(sizeof((long)(0 && PageCompound(page))))); page;})->flags)) : variable_test_bit((PG_reserved), (&({ ((void)(sizeof((long)(0 && PageCompound(page))))); page;})->flags)));
+}
+static inline   void SetPageReserved(struct page *page)
+{
+    set_bit(PG_reserved, &({ ((void)(sizeof((long)(1 && PageCompound(page))))); page;})->flags);
+}
+static inline   void ClearPageReserved(struct page *page)
+{
+    clear_bit(PG_reserved, &({ ((void)(sizeof((long)(1 && PageCompound(page))))); page;})->flags);
+}
+static inline   void __ClearPageReserved(struct page *page)
+{
+    __clear_bit(PG_reserved, &({ ((void)(sizeof((long)(1 && PageCompound(page))))); page;})->flags);
+}
+static inline   int PageSwapBacked(struct page *page)
+{
+    return (__builtin_constant_p((PG_swapbacked)) ? constant_test_bit((PG_swapbacked), (&({ ((void)(sizeof((long)(0 && PageTail(page))))); compound_head(page);})->flags)) : variable_test_bit((PG_swapbacked), (&({ ((void)(sizeof((long)(0 && PageTail(page))))); compound_head(page);})->flags)));
+}
+static inline   void SetPageSwapBacked(struct page *page)
+{
+    set_bit(PG_swapbacked, &({ ((void)(sizeof((long)(1 && PageTail(page))))); compound_head(page);})->flags);
+}
+static inline   void ClearPageSwapBacked(struct page *page)
+{
+    clear_bit(PG_swapbacked, &({ ((void)(sizeof((long)(1 && PageTail(page))))); compound_head(page);})->flags);
+}
+static inline   void __ClearPageSwapBacked(struct page *page)
+{
+    __clear_bit(PG_swapbacked, &({ ((void)(sizeof((long)(1 && PageTail(page))))); compound_head(page);})->flags);
+}
+static inline   void __SetPageSwapBacked(struct page *page)
+{
+    __set_bit(PG_swapbacked, &({ ((void)(sizeof((long)(1 && PageTail(page))))); compound_head(page);})->flags);
+}
+
+
+
+
+
+
+static inline   int PagePrivate(struct page *page)
+{
+    return (__builtin_constant_p((PG_private)) ? constant_test_bit((PG_private), (&page->flags)) : variable_test_bit((PG_private), (&page->flags)));
+}
+static inline   void SetPagePrivate(struct page *page)
+{
+    set_bit(PG_private, &page->flags);
+}
+static inline   void ClearPagePrivate(struct page *page)
+{
+    clear_bit(PG_private, &page->flags);
+}
+static inline   void __SetPagePrivate(struct page *page)
+{
+    __set_bit(PG_private, &page->flags);
+}
+static inline   void __ClearPagePrivate(struct page *page)
+{
+    __clear_bit(PG_private, &page->flags);
+}
+static inline   int PagePrivate2(struct page *page)
+{
+    return (__builtin_constant_p((PG_private_2)) ? constant_test_bit((PG_private_2), (&page->flags)) : variable_test_bit((PG_private_2), (&page->flags)));
+}
+static inline   void SetPagePrivate2(struct page *page)
+{
+    set_bit(PG_private_2, &page->flags);
+}
+static inline   void ClearPagePrivate2(struct page *page)
+{
+    clear_bit(PG_private_2, &page->flags);
+}
+static inline   int TestSetPagePrivate2(struct page *page)
+{
+    return test_and_set_bit(PG_private_2, &page->flags);
+}
+static inline   int TestClearPagePrivate2(struct page *page)
+{
+    return test_and_clear_bit(PG_private_2, &page->flags);
+}
+static inline   int PageOwnerPriv1(struct page *page)
+{
+    return (__builtin_constant_p((PG_owner_priv_1)) ? constant_test_bit((PG_owner_priv_1), (&page->flags)) : variable_test_bit((PG_owner_priv_1), (&page->flags)));
+}
+static inline   void SetPageOwnerPriv1(struct page *page)
+{
+    set_bit(PG_owner_priv_1, &page->flags);
+}
+static inline   void ClearPageOwnerPriv1(struct page *page)
+{
+    clear_bit(PG_owner_priv_1, &page->flags);
+}
+static inline   int TestClearPageOwnerPriv1(struct page *page)
+{
+    return test_and_clear_bit(PG_owner_priv_1, &page->flags);
+}
+
+
+
+
+
+static inline   int PageWriteback(struct page *page)
+{
+    return (__builtin_constant_p((PG_writeback)) ? constant_test_bit((PG_writeback), (&({ ((void)(sizeof((long)(0 && PageCompound(page))))); page;})->flags)) : variable_test_bit((PG_writeback), (&({ ((void)(sizeof((long)(0 && PageCompound(page))))); page;})->flags)));
+}
+static inline   int TestSetPageWriteback(struct page *page)
+{
+    return test_and_set_bit(PG_writeback, &({ ((void)(sizeof((long)(1 && PageCompound(page))))); page;})->flags);
+}
+static inline   int TestClearPageWriteback(struct page *page)
+{
+    return test_and_clear_bit(PG_writeback, &({ ((void)(sizeof((long)(1 && PageCompound(page))))); page;})->flags);
+}
+static inline   int PageMappedToDisk(struct page *page)
+{
+    return (__builtin_constant_p((PG_mappedtodisk)) ? constant_test_bit((PG_mappedtodisk), (&({ ((void)(sizeof((long)(0 && PageTail(page))))); compound_head(page);})->flags)) : variable_test_bit((PG_mappedtodisk), (&({ ((void)(sizeof((long)(0 && PageTail(page))))); compound_head(page);})->flags)));
+}
+static inline   void SetPageMappedToDisk(struct page *page)
+{
+    set_bit(PG_mappedtodisk, &({ ((void)(sizeof((long)(1 && PageTail(page))))); compound_head(page);})->flags);
+}
+static inline   void ClearPageMappedToDisk(struct page *page)
+{
+    clear_bit(PG_mappedtodisk, &({ ((void)(sizeof((long)(1 && PageTail(page))))); compound_head(page);})->flags);
+}
+
+
+static inline   int PageReclaim(struct page *page)
+{
+    return (__builtin_constant_p((PG_reclaim)) ? constant_test_bit((PG_reclaim), (&({ ((void)(sizeof((long)(0 && PageTail(page))))); compound_head(page);})->flags)) : variable_test_bit((PG_reclaim), (&({ ((void)(sizeof((long)(0 && PageTail(page))))); compound_head(page);})->flags)));
+}
+static inline   void SetPageReclaim(struct page *page)
+{
+    set_bit(PG_reclaim, &({ ((void)(sizeof((long)(1 && PageTail(page))))); compound_head(page);})->flags);
+}
+static inline   void ClearPageReclaim(struct page *page)
+{
+    clear_bit(PG_reclaim, &({ ((void)(sizeof((long)(1 && PageTail(page))))); compound_head(page);})->flags);
+}
+static inline   int TestClearPageReclaim(struct page *page)
+{
+    return test_and_clear_bit(PG_reclaim, &({ ((void)(sizeof((long)(1 && PageTail(page))))); compound_head(page);})->flags);
+}
+static inline   int PageReadahead(struct page *page)
+{
+    return (__builtin_constant_p((PG_reclaim)) ? constant_test_bit((PG_reclaim), (&({ ((void)(sizeof((long)(0 && PageCompound(page))))); page;})->flags)) : variable_test_bit((PG_reclaim), (&({ ((void)(sizeof((long)(0 && PageCompound(page))))); page;})->flags)));
+}
+static inline   void SetPageReadahead(struct page *page)
+{
+    set_bit(PG_reclaim, &({ ((void)(sizeof((long)(1 && PageCompound(page))))); page;})->flags);
+}
+static inline   void ClearPageReadahead(struct page *page)
+{
+    clear_bit(PG_reclaim, &({ ((void)(sizeof((long)(1 && PageCompound(page))))); page;})->flags);
+}
+static inline   int TestClearPageReadahead(struct page *page)
+{
+    return test_and_clear_bit(PG_reclaim, &({ ((void)(sizeof((long)(1 && PageCompound(page))))); page;})->flags);
+}
+// 313 "./include/linux/page-flags.h"
+static inline  int PageHighMem(const struct page *page)
+{
+    return 0;
+}
+static inline  void SetPageHighMem(struct page *page) { } static inline  void ClearPageHighMem(struct page *page) { }
+
+
+
+static inline   int PageSwapCache(struct page *page)
+{
+    return (__builtin_constant_p((PG_swapcache)) ? constant_test_bit((PG_swapcache), (&({ ((void)(sizeof((long)(0 && PageCompound(page))))); page;})->flags)) : variable_test_bit((PG_swapcache), (&({ ((void)(sizeof((long)(0 && PageCompound(page))))); page;})->flags)));
+}
+static inline   void SetPageSwapCache(struct page *page)
+{
+    set_bit(PG_swapcache, &({ ((void)(sizeof((long)(1 && PageCompound(page))))); page;})->flags);
+}
+static inline   void ClearPageSwapCache(struct page *page)
+{
+    clear_bit(PG_swapcache, &({ ((void)(sizeof((long)(1 && PageCompound(page))))); page;})->flags);
+}
+
+
+
+
+static inline   int PageUnevictable(struct page *page)
+{
+    return (__builtin_constant_p((PG_unevictable)) ? constant_test_bit((PG_unevictable), (&compound_head(page)->flags)) : variable_test_bit((PG_unevictable), (&compound_head(page)->flags)));
+}
+static inline   void SetPageUnevictable(struct page *page)
+{
+    set_bit(PG_unevictable, &compound_head(page)->flags);
+}
+static inline   void ClearPageUnevictable(struct page *page)
+{
+    clear_bit(PG_unevictable, &compound_head(page)->flags);
+}
+static inline   void __ClearPageUnevictable(struct page *page)
+{
+    __clear_bit(PG_unevictable, &compound_head(page)->flags);
+}
+static inline   int TestClearPageUnevictable(struct page *page)
+{
+    return test_and_clear_bit(PG_unevictable, &compound_head(page)->flags);
+}
+
+
+static inline   int PageMlocked(struct page *page)
+{
+    return (__builtin_constant_p((PG_mlocked)) ? constant_test_bit((PG_mlocked), (&({ ((void)(sizeof((long)(0 && PageTail(page))))); compound_head(page);})->flags)) : variable_test_bit((PG_mlocked), (&({ ((void)(sizeof((long)(0 && PageTail(page))))); compound_head(page);})->flags)));
+}
+static inline   void SetPageMlocked(struct page *page)
+{
+    set_bit(PG_mlocked, &({ ((void)(sizeof((long)(1 && PageTail(page))))); compound_head(page);})->flags);
+}
+static inline   void ClearPageMlocked(struct page *page)
+{
+    clear_bit(PG_mlocked, &({ ((void)(sizeof((long)(1 && PageTail(page))))); compound_head(page);})->flags);
+}
+static inline   void __ClearPageMlocked(struct page *page)
+{
+    __clear_bit(PG_mlocked, &({ ((void)(sizeof((long)(1 && PageTail(page))))); compound_head(page);})->flags);
+}
+static inline   int TestSetPageMlocked(struct page *page)
+{
+    return test_and_set_bit(PG_mlocked, &({ ((void)(sizeof((long)(1 && PageTail(page))))); compound_head(page);})->flags);
+}
+static inline   int TestClearPageMlocked(struct page *page)
+{
+    return test_and_clear_bit(PG_mlocked, &({ ((void)(sizeof((long)(1 && PageTail(page))))); compound_head(page);})->flags);
+}
+
+
+
+
+
+
+static inline   int PageUncached(struct page *page)
+{
+    return (__builtin_constant_p((PG_uncached)) ? constant_test_bit((PG_uncached), (&({ ((void)(sizeof((long)(0 && PageCompound(page))))); page;})->flags)) : variable_test_bit((PG_uncached), (&({ ((void)(sizeof((long)(0 && PageCompound(page))))); page;})->flags)));
+}
+static inline   void SetPageUncached(struct page *page)
+{
+    set_bit(PG_uncached, &({ ((void)(sizeof((long)(1 && PageCompound(page))))); page;})->flags);
+}
+static inline   void ClearPageUncached(struct page *page)
+{
+    clear_bit(PG_uncached, &({ ((void)(sizeof((long)(1 && PageCompound(page))))); page;})->flags);
+}
+// 346 "./include/linux/page-flags.h"
+static inline  int PageHWPoison(const struct page *page)
+{
+    return 0;
+}
+static inline  void SetPageHWPoison(struct page *page) { } static inline  void ClearPageHWPoison(struct page *page) { }
+
+#endif
 #define PAGE_MAPPING_ANON	0x1
 #define PAGE_MAPPING_MOVABLE	0x2
 #define PAGE_MAPPING_KSM	(PAGE_MAPPING_ANON | PAGE_MAPPING_MOVABLE)

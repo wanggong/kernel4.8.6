@@ -347,13 +347,19 @@ struct fault_env {
  * unmapping it (needed to keep files on disk up-to-date etc), pointer
  * to the functions called when a no-page or a wp-page exception occurs. 
  */
+// 
 struct vm_operations_struct {
 	void (*open)(struct vm_area_struct * area);
 	void (*close)(struct vm_area_struct * area);
+ //在mremap时会调用此函数   
 	int (*mremap)(struct vm_area_struct * area);
+ //在访问内存fault时被调用，见__do_fault
+ //这里边需要做的动作一般是分配内存，然后才文件中将内容读进去
 	int (*fault)(struct vm_area_struct *vma, struct vm_fault *vmf);
+ //huge pmd的fault
 	int (*pmd_fault)(struct vm_area_struct *, unsigned long address,
 						pmd_t *, unsigned int flags);
+ //看开也和fault的处理有关，在__do_fault之前先调用这个函数，为什么要这么做?
 	void (*map_pages)(struct fault_env *fe,
 			pgoff_t start_pgoff, pgoff_t end_pgoff);
 
