@@ -115,6 +115,7 @@ void vma_set_page_prot(struct vm_area_struct *vma)
 	unsigned long vm_flags = vma->vm_flags;
 
 	vma->vm_page_prot = vm_pgprot_modify(vma->vm_page_prot, vm_flags);
+//如果希望这段内存在写时通知，则去掉	VM_SHARED属性，为啥?
 	if (vma_wants_writenotify(vma)) {
 		vm_flags &= ~VM_SHARED;
 		vma->vm_page_prot = vm_pgprot_modify(vma->vm_page_prot,
@@ -1411,7 +1412,7 @@ SYSCALL_DEFINE1(old_mmap, struct mmap_arg_struct __user *, arg)
  * to the private version (using protection_map[] without the
  * VM_SHARED bit).
  */
-//是否需要写通知，没看 
+//是否需要写通知，没搞明白 
 int vma_wants_writenotify(struct vm_area_struct *vma)
 {
 	vm_flags_t vm_flags = vma->vm_flags;
