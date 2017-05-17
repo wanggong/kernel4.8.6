@@ -429,20 +429,28 @@ int pagecache_write_end(struct file *, struct address_space *mapping,
 
 struct address_space {
 	struct inode		*host;		/* owner: inode, block_device */
+//此address_space所拥有的pages
 	struct radix_tree_root	page_tree;	/* radix tree of all pages */
 	spinlock_t		tree_lock;	/* and lock protecting it */
+//控制此address_space的读写    
 //此值有三种状态
 // 0  没有限制，可以进行writetable或denywirte的map
 // >0 已经做了writeable的map，不能再做denywrite的map了
 // <0 已经做了denywrite的map了，不能再做writeable的map了
 	atomic_t		i_mmap_writable;/* count VM_SHARED mappings */
 //链接和此mapping相关的vma,不同进程的vma都会链接到这里
+//注意:vm_area_struct是属于进程的，而address_space是属于某个文件的，有kernel管理，不属于任何进程
 	struct rb_root		i_mmap;		/* tree of private and shared mappings */
 	struct rw_semaphore	i_mmap_rwsem;	/* protect tree, count, list */
 	/* Protected by tree_lock together with the radix tree */
+//此address_space所拥有的page的数量    
 	unsigned long		nrpages;	/* number of total pages */
 	/* number of shadow or DAX exceptional entries */
 	unsigned long		nrexceptional;
+//表示下一个writeback的index，具体使用见write_cache_pages
+//有时候我们写入时为了回收内存，这种情况下我们就可以不指定具体写入
+//的开始位置，这时候就可以使用这个变量，跟随上次写入的后面的地址继续写入，
+//这样至少有一个好处是这些块和之前写入的块有可能能合并
 	pgoff_t			writeback_index;/* writeback starts here */
 	const struct address_space_operations *a_ops;	/* methods */
 	unsigned long		flags;		/* error bits/gfp mask */
@@ -682,6 +690,7 @@ struct inode {
  // 0 表示没有其他进程操作，此时既可以写入也可以禁止写入
  // >0 表示已经有进程申请过写入了，此时如果禁止写入会返回失败
  // <0 表示此时已经被禁止写入了，如果此时申请写入会返回失败
+//对这个字段的操作有四个函数，见get_write_access
 	atomic_t		i_writecount;
 #ifdef CONFIG_IMA
 	atomic_t		i_readcount; /* struct files open RO */
@@ -2616,8 +2625,16 @@ static inline void file_end_write(struct file *file)
  * use {get,deny}_write_access() - these functions check the sign and refuse
  * to do the change if sign is wrong.
  */
-//申请写入，返回0表示成功
-//当此inode被禁止写入时会返回失败
+
+/*********************************************************************
+申请写入，返回0表示成功
+当此inode被禁止写入时会返回失败
+下面的四个函数操作i_writecount来控制对文件的写操作。
+当要执行一个文件时，在打开文件之后需要调用deny_write_access来禁止其他进程写此文件。
+当调用mmap有VM_DENYWRITE标志时也会调用deny_write_access。
+
+当以可写的方式打开文件时(有FMODE_WRITE标志)，要调用get_write_access来声明会对文件进行写。
+********************************************************************/
 static inline int get_write_access(struct inode *inode)
 {
 	return atomic_inc_unless_negative(&inode->i_writecount) ? 0 : -ETXTBSY;

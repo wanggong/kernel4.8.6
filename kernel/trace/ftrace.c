@@ -1477,6 +1477,8 @@ static bool hash_contains_ip(unsigned long ip,
  * This needs to be called with preemption disabled as
  * the hashes are freed with call_rcu_sched().
  */
+
+//检查ip是否包含在set_ftrace_filter中，在返回1，否则返回0
 static int
 ftrace_ops_test(struct ftrace_ops *ops, unsigned long ip, void *regs)
 {
@@ -2345,6 +2347,8 @@ unsigned long ftrace_get_addr_curr(struct dyn_ftrace *rec)
 		return (unsigned long)FTRACE_ADDR;
 }
 
+//将rec->ip的指令替换成bl ftrace_caller或nop
+//见:entry-ftrace.S
 static int
 __ftrace_replace_code(struct dyn_ftrace *rec, int enable)
 {
@@ -2367,6 +2371,8 @@ __ftrace_replace_code(struct dyn_ftrace *rec, int enable)
 
 	case FTRACE_UPDATE_MAKE_CALL:
 		ftrace_bug_type = FTRACE_BUG_CALL;
+//将rec->ip的指令替换成bl   ftrace_addr，ftrace_addr对应的是函数ftrace_caller
+//见:entry-ftrace.S
 		return ftrace_make_call(rec, ftrace_addr);
 
 	case FTRACE_UPDATE_MAKE_NOP:
@@ -2381,6 +2387,8 @@ __ftrace_replace_code(struct dyn_ftrace *rec, int enable)
 	return -1; /* unknow ftrace bug */
 }
 
+//将所有的动态trace的函数入口rec->ip的指令替换成bl ftrace_caller或nop
+//见:entry-ftrace.S
 void __weak ftrace_replace_code(int enable)
 {
 	struct dyn_ftrace *rec;
@@ -2391,6 +2399,8 @@ void __weak ftrace_replace_code(int enable)
 		return;
 
 	do_for_each_ftrace_rec(pg, rec) {
+//将rec->ip的指令替换成bl ftrace_caller或nop
+//见:entry-ftrace.S        
 		failed = __ftrace_replace_code(rec, enable);
 		if (failed) {
 			ftrace_bug(failed, rec);
@@ -2508,6 +2518,7 @@ int __weak ftrace_arch_code_modify_post_process(void)
 	return 0;
 }
 
+//将所有的动态trace的函数入口rec->ip的指令替换成bl ftrace_caller或nop
 void ftrace_modify_all_code(int command)
 {
 	int update = command & FTRACE_UPDATE_TRACE_FUNC;
@@ -2530,8 +2541,10 @@ void ftrace_modify_all_code(int command)
 	}
 
 	if (command & FTRACE_UPDATE_CALLS)
+//将所有的动态trace的函数入口rec->ip的指令替换成bl ftrace_caller        
 		ftrace_replace_code(1);
 	else if (command & FTRACE_DISABLE_CALLS)
+//将所有的动态trace的函数入口rec->ip的指令替换成nop        
 		ftrace_replace_code(0);
 
 	if (update && ftrace_trace_function != ftrace_ops_list_func) {
@@ -2584,7 +2597,7 @@ void __weak arch_ftrace_update_code(int command)
 {
 	ftrace_run_stop_machine(command);
 }
-
+//将所有的动态trace的函数入口rec->ip的指令替换成bl ftrace_caller或nop
 static void ftrace_run_update_code(int command)
 {
 	int ret;
@@ -2600,6 +2613,7 @@ static void ftrace_run_update_code(int command)
 	 * is safe. The stop_machine() is the safest, but also
 	 * produces the most overhead.
 	 */
+//将所有的动态trace的函数入口rec->ip的指令替换成bl ftrace_caller或nop	 
 	arch_ftrace_update_code(command);
 
 	ret = ftrace_arch_code_modify_post_process();
@@ -2629,7 +2643,7 @@ static void per_cpu_ops_free(struct ftrace_ops *ops)
 {
 	free_percpu(ops->disabled);
 }
-
+//将所有的动态trace的函数入口rec->ip的指令替换成bl ftrace_caller或nop
 static void ftrace_startup_enable(int command)
 {
 	if (saved_ftrace_func != ftrace_trace_function) {
@@ -2639,7 +2653,7 @@ static void ftrace_startup_enable(int command)
 
 	if (!command || !ftrace_enabled)
 		return;
-
+//将所有的动态trace的函数入口rec->ip的指令替换成bl ftrace_caller或nop
 	ftrace_run_update_code(command);
 }
 
@@ -2649,7 +2663,9 @@ static void ftrace_startup_all(int command)
 	ftrace_startup_enable(command);
 	update_all_ops = false;
 }
-
+//ftrace start
+//其中有一个步骤是:
+//将所有的动态trace的函数入口rec->ip的指令替换成bl ftrace_caller或nop
 static int ftrace_startup(struct ftrace_ops *ops, int command)
 {
 	int ret;
@@ -2684,7 +2700,7 @@ static int ftrace_startup(struct ftrace_ops *ops, int command)
 
 	if (ftrace_hash_rec_enable(ops, 1))
 		command |= FTRACE_UPDATE_CALLS;
-
+//将所有的动态trace的函数入口rec->ip的指令替换成bl ftrace_caller或nop
 	ftrace_startup_enable(command);
 
 	ops->flags &= ~FTRACE_OPS_FL_ADDING;
@@ -5634,6 +5650,7 @@ int ftrace_is_dead(void)
  *       with "notrace", otherwise it will go into a
  *       recursive loop.
  */
+//将所有的动态trace的函数入口rec->ip的指令替换成bl ftrace_caller或nop 
 int register_ftrace_function(struct ftrace_ops *ops)
 {
 	int ret = -1;
@@ -5641,7 +5658,7 @@ int register_ftrace_function(struct ftrace_ops *ops)
 	ftrace_ops_init(ops);
 
 	mutex_lock(&ftrace_lock);
-
+//将所有的动态trace的函数入口rec->ip的指令替换成bl ftrace_caller或nop
 	ret = ftrace_startup(ops, 0);
 
 	mutex_unlock(&ftrace_lock);

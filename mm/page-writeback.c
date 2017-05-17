@@ -2290,6 +2290,7 @@ int write_cache_pages(struct address_space *mapping,
 
 	pagevec_init(&pvec, 0);
 	if (wbc->range_cyclic) {
+//表示继续接着上次的写?        
 		writeback_index = mapping->writeback_index; /* prev offset */
 		index = writeback_index;
 		if (index == 0)

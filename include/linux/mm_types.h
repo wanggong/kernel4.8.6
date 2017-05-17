@@ -44,9 +44,20 @@ struct mem_cgroup;
  */
 struct page {
 	/* First double word block */
+//page的一些flags，具体见pageflags    
 	unsigned long flags;		/* Atomic flags, some possibly
 					 * updated asynchronously */
 	union {
+/***********************************************
+ 首先，PFRA必须要确定待回收页是共享的还是非共享的，以及是映射页或是匿名页。
+ 为做到这一点，内核要查看页描述符的两个字段：_mapcount和mapping。
+ _mapcount字段存放引用页框的页表项数目，确定其是否共享；
+ mapping字段用于确定页是映射的或是匿名的：
+ 为空表示该页属于交换高速缓存；非空，且最低位是1，表示该页为匿名页，
+ 同时mapping字段中存放的是指向anon_vma描述符的指针；
+ 如果mapping字段非空，且最低位是0，表示该页为映射页；
+ 同时mapping字段指向对应文件的address_space对象。
+**********************************************/
 		struct address_space *mapping;	/* If low bit clear, points to
 						 * inode address_space, or NULL.
 						 * If page mapped as anonymous
@@ -54,7 +65,9 @@ struct page {
 						 * it points to anon_vma object:
 						 * see PAGE_MAPPING_ANON below.
 						 */
+//当page用于slab时，表示第一个obj的地址						 
 		void *s_mem;			/* slab first object */
+//和多个page连到一块有关，还没有看明白                         
 		atomic_t compound_mapcount;	/* first tail page */
 		/* page_deferred_list().next	 -- second tail page */
 	};
@@ -91,6 +104,7 @@ struct page {
 				 * in which case the value MUST BE <= -2.
 				 * See page-flags.h for more details.
 				 */
+// _mapcount字段存放引用页框的页表项数目，确定其是否共享；				 
 				atomic_t _mapcount;
 
 				unsigned int active;		/* SLAB */
@@ -346,10 +360,12 @@ struct vm_area_struct {
 	 * linkage into the address_space->i_mmap interval tree.
 	 */
 	struct {
-//这两个字段用于interval tree(线段树)，rb用于将当前vma连接到mapping->i_mmap，此树是以
-//vma->mv_start为键值的二叉树，每个节点上有一个rb_subtree_last，对于叶子节点，这个值是
-//vm_end，对于其他节点，此值表示以当前节点为树根的rb_subtree_last的最大值。rb_subtree_last
-//应该是用于加快search的速度。
+/*****************************************************************	
+这两个字段用于interval tree(线段树)，rb用于将当前vma连接到address_space->i_mmap，此树是以
+vma->mv_start为键值的二叉树，每个节点上有一个rb_subtree_last，对于叶子节点，这个值是
+vm_end，对于其他节点，此值表示以当前节点为树根的rb_subtree_last的最大值。
+rb_subtree_last是用于加快search的速度。这是一种对范围搜索的手段。
+*****************************************************************/
 		struct rb_node rb;
 		unsigned long rb_subtree_last;
 	} shared;
@@ -363,9 +379,12 @@ struct vm_area_struct {
 //链接avc->same_vma	 
 	struct list_head anon_vma_chain; /* Serialized by mmap_sem &
 					  * page_table_lock */
+//此字段是在用户分配内存之后，第一次访问时分配的，见do_anonymous_page                        
 	struct anon_vma *anon_vma;	/* Serialized by page_table_lock */
 
 	/* Function pointers to deal with this struct. */
+//从vma_is_anonymous函数中看，对于anon的vma，此值是0.
+//所以只有vma是文件映射时此字段才有意义
 	const struct vm_operations_struct *vm_ops;
 
 	/* Information about our backing store: */
@@ -440,6 +459,7 @@ struct mm_struct {
 //pmd所占的page的个数
 	atomic_long_t nr_pmds;			/* PMD page table pages */
 #endif
+//vm_area_struct的个数
 	int map_count;				/* number of VMAs */
 
 	spinlock_t page_table_lock;		/* Protects page tables and some counters */
@@ -462,6 +482,8 @@ struct mm_struct {
 	unsigned long stack_vm;		/* VM_STACK */
 	unsigned long def_flags;
 	unsigned long start_code, end_code, start_data, end_data;
+//start_brk:libc的malloc申请内存开始的地址
+//brk:通过malloc申请的最后的地址
 	unsigned long start_brk, brk, start_stack;
 	unsigned long arg_start, arg_end, env_start, env_end;
 
