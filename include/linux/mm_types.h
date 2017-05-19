@@ -104,7 +104,8 @@ struct page {
 				 * in which case the value MUST BE <= -2.
 				 * See page-flags.h for more details.
 				 */
-// _mapcount字段存放引用页框的页表项数目，确定其是否共享；				 
+// _mapcount字段存放引用页框的页表项数目，确定其是否共享；		
+//默认值是-1
 				atomic_t _mapcount;
 
 				unsigned int active;		/* SLAB */

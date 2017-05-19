@@ -160,6 +160,7 @@ struct ion_custom_data {
  * descriptor open in the current address space.  This file descriptor
  * can then be used as an argument to mmap.
  */
+//为handle对应的buffer分配一个dma_buf，并将dma_buf->file安装到文件系统上，并返回其fd 
 #define ION_IOC_MAP		_IOWR(ION_IOC_MAGIC, 2, struct ion_fd_data)
 
 /**
@@ -171,6 +172,7 @@ struct ion_custom_data {
  * can then be passed to another process.  The corresponding opaque handle can
  * be retrieved via ION_IOC_IMPORT.
  */
+//为handle对应的buffer分配一个dma_buf，并将dma_buf->file安装到文件系统上，并返回其fd 
 #define ION_IOC_SHARE		_IOWR(ION_IOC_MAGIC, 4, struct ion_fd_data)
 
 /**
@@ -180,6 +182,7 @@ struct ion_custom_data {
  * descriptor obtained from ION_IOC_SHARE and returns the struct with the handle
  * filed set to the corresponding opaque handle.
  */
+//找到fd对应的dma_buffer和ion_buffer,然后为当前的client创建一个handle 
 #define ION_IOC_IMPORT		_IOWR(ION_IOC_MAGIC, 5, struct ion_fd_data)
 
 /**
