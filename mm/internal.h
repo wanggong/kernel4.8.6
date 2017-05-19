@@ -316,6 +316,9 @@ extern pmd_t maybe_pmd_mkwrite(pmd_t pmd, struct vm_area_struct *vma);
 /*
  * At what user virtual address is page expected in @vma?
  */
+//返回page在vma中的地址
+//对于anon的vma，一个page是否在vma中使用，必须检查vma中对应的page的地址的pte确实
+//指向此page才可以。
 static inline unsigned long
 __vma_address(struct page *page, struct vm_area_struct *vma)
 {
@@ -323,6 +326,7 @@ __vma_address(struct page *page, struct vm_area_struct *vma)
 	return vma->vm_start + ((pgoff - vma->vm_pgoff) << PAGE_SHIFT);
 }
 
+//返回page在vma中的地址
 static inline unsigned long
 vma_address(struct page *page, struct vm_area_struct *vma)
 {

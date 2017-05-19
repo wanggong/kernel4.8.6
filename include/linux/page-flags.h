@@ -141,6 +141,7 @@ enum pageflags {
 
 struct page;	/* forward declaration */
 
+//返回page的compound head
 static inline struct page *compound_head(struct page *page)
 {
 	unsigned long head = READ_ONCE(page->compound_head);
@@ -150,11 +151,13 @@ static inline struct page *compound_head(struct page *page)
 	return page;
 }
 
+//判断当前page是否是compound的一个page
 static __always_inline int PageTail(struct page *page)
 {
 	return READ_ONCE(page->compound_head) & 1;
 }
 
+//判断一个页面是否是compound
 static __always_inline int PageCompound(struct page *page)
 {
 	return test_bit(PG_head, &page->flags) || PageTail(page);
@@ -926,6 +929,7 @@ static inline void set_page_writeback_keepwrite(struct page *page)
 }
 
 __PAGEFLAG(Head, head, PF_ANY) CLEARPAGEFLAG(Head, head, PF_ANY)
+
 
 static __always_inline void set_compound_head(struct page *page, struct page *head)
 {

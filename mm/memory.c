@@ -1509,7 +1509,7 @@ pte_t *__get_locked_pte(struct mm_struct *mm, unsigned long addr,
  * old drivers should use this, and they needed to mark their
  * pages reserved for the old functions anyway.
  */
- //将page插入到vma的addr对应的pte
+ //将page插入到vma的addr,并设置pte
 static int insert_page(struct vm_area_struct *vma, unsigned long addr,
 			struct page *page, pgprot_t prot)
 {
