@@ -927,16 +927,33 @@ static inline void set_page_writeback_keepwrite(struct page *page)
 {
 	test_set_page_writeback_keepwrite(page);
 }
-
+#if 0
 __PAGEFLAG(Head, head, PF_ANY) CLEARPAGEFLAG(Head, head, PF_ANY)
+#else
+//处理之后如下
+static inline int PageHead(struct page *page)
+{
+    return (__builtin_constant_p((PG_head)) ? constant_test_bit((PG_head), (&page->flags)) : variable_test_bit((PG_head), (&page->flags)));
+}
+static inline void __SetPageHead(struct page *page)
+{
+    __set_bit(PG_head, &page->flags);
+}
+static inline void __ClearPageHead(struct page *page)
+{
+    __clear_bit(PG_head, &page->flags);
+}
+static inline void ClearPageHead(struct page *page)
+{
+    clear_bit(PG_head, &page->flags);
+}
 
-
-static __always_inline void set_compound_head(struct page *page, struct page *head)
+static void set_compound_head(struct page *page, struct page *head)
 {
 	WRITE_ONCE(page->compound_head, (unsigned long)head + 1);
 }
 
-static __always_inline void clear_compound_head(struct page *page)
+static void clear_compound_head(struct page *page)
 {
 	WRITE_ONCE(page->compound_head, 0);
 }

@@ -105,8 +105,10 @@ struct page {
 				 * in which case the value MUST BE <= -2.
 				 * See page-flags.h for more details.
 				 */
+
 //page在使用时要通过pte索引的，一个page可以在多个用户空间共享使用，这就会将此page映射到
 //多个pte中，这个字段就是用来统计page映射到了多少个pte中。
+
 				atomic_t _mapcount;
 
 				unsigned int active;		/* SLAB */

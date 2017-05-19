@@ -83,6 +83,7 @@ struct ion_device {
 struct ion_client {
 	struct rb_node node;
 	struct ion_device *dev;
+//所有属于此client的handle链接到这里    
 	struct rb_root handles;
 	struct idr idr;
 	struct mutex lock;
@@ -106,6 +107,7 @@ struct ion_client {
  * Modifications to node, map_cnt or mapping should be protected by the
  * lock in the client.  Other fields are never changed after initialization.
  */
+ //对应于一个buffer
 struct ion_handle {
 	struct kref ref;
 	struct ion_client *client;
@@ -488,6 +490,9 @@ static int ion_handle_add(struct ion_client *client, struct ion_handle *handle)
 	return 0;
 }
 
+//分配一个ion_buffer,分配一个ion_handle指向buffer并返回。
+//注意，此时并没有分配dma_buffer,要到share或map时才会分配
+//所以此时是不能共享的。
 struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 			     size_t align, unsigned int heap_id_mask,
 			     unsigned int flags)
@@ -1165,7 +1170,7 @@ static struct dma_buf_ops dma_buf_ops = {
 	.kmap = ion_dma_buf_kmap,
 	.kunmap = ion_dma_buf_kunmap,
 };
-
+//为handle对应的buffer创建一个dma_buf
 struct dma_buf *ion_share_dma_buf(struct ion_client *client,
 						struct ion_handle *handle)
 {
@@ -1200,6 +1205,7 @@ struct dma_buf *ion_share_dma_buf(struct ion_client *client,
 }
 EXPORT_SYMBOL(ion_share_dma_buf);
 
+//为handle对应的buffer分配一个dma_buf，并将dma_buf->file安装到文件系统上，并返回其fd
 int ion_share_dma_buf_fd(struct ion_client *client, struct ion_handle *handle)
 {
 	struct dma_buf *dmabuf;
@@ -1217,6 +1223,7 @@ int ion_share_dma_buf_fd(struct ion_client *client, struct ion_handle *handle)
 }
 EXPORT_SYMBOL(ion_share_dma_buf_fd);
 
+//找到dmabuf对应的ion_buffer，并为当前的client创建一个handle指向此buffer
 struct ion_handle *ion_import_dma_buf(struct ion_client *client,
 				      struct dma_buf *dmabuf)
 {
@@ -1260,6 +1267,7 @@ end:
 }
 EXPORT_SYMBOL(ion_import_dma_buf);
 
+//找到fd对应的dma_buffer和ion_buffer,然后为当前的client创建一个handle
 struct ion_handle *ion_import_dma_buf_fd(struct ion_client *client, int fd)
 {
 	struct dma_buf *dmabuf;
@@ -1311,7 +1319,41 @@ static unsigned int ion_ioctl_dir(unsigned int cmd)
 		return _IOC_DIR(cmd);
 	}
 }
+/******************************ion总结***************************************
+ion牵涉到的数据结构有
+ion_client:这个是user在使用ion调用open("/dev/ion")返回的,每次打开返回一个
+ion_handle:这个和ion_bufer对应的，
+ion_buffer:真正的内存，buffer只有一份，但在每个应用中用ion_handle来获取此buffer
+ion_heap:为ion分配不同的buffer，这个只存在kernel中，可以不予关注
 
+使用ion的过程如下:
+进程1:
+    int fd = open("dev/ion");
+    struct ion_allocation_data data = {
+		.len = len,
+		.align = align,
+		.heap_id_mask = heap_mask,
+		.flags = flags,
+    };
+    ioctl(fd, ION_IOC_ALLOC, &data);//这一步会创建一个ion_buffer,并创建被进程的
+                                        //ion_handle，本进程已经可以使用此内存了
+                                        //通过data->handle
+    struct ion_fd_data data = {
+        .handle = handle,
+    };
+    ioctl(fd, ION_IOC_SHARE, &data);//这一步kernel会创建dma_buffer和此buffer对应
+                                    //并返回fd到data->fd,将此fd传给其他进程，其他进程
+                                    //就可以访问了
+                                    
+ 进程2:
+    int fd2 = open("dev/ion");
+    struct ion_fd_data data = {
+        .fd = share_fd,             //此share_fd就是刚才通过ION_IOC_SHARE返回的fd
+    };
+    ioctl(fd, ION_IOC_IMPORT, &data);//这个操作会返回data.handle，以后user就可以
+                                     //通过操作此handle来操作共享的buffer了
+                                        
+******************************************************************************/
 static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	struct ion_client *client = filp->private_data;
@@ -1376,12 +1418,14 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		handle = ion_handle_get_by_id(client, data.handle.handle);
 		if (IS_ERR(handle))
 			return PTR_ERR(handle);
+//为handle对应的buffer分配一个dma_buf，并将dma_buf->file安装到文件系统上，并返回其fd        
 		data.fd.fd = ion_share_dma_buf_fd(client, handle);
 		ion_handle_put(handle);
 		if (data.fd.fd < 0)
 			ret = data.fd.fd;
 		break;
 	}
+//找到fd对应的dma_buffer和ion_buffer,然后为当前的client创建一个handle
 	case ION_IOC_IMPORT:
 	{
 		struct ion_handle *handle;

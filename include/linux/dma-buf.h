@@ -127,15 +127,23 @@ struct dma_buf_ops {
  */
 struct dma_buf {
 	size_t size;
+//和此buffer绑定的file    
 	struct file *file;
+//和此buf绑定的devices    
 	struct list_head attachments;
 	const struct dma_buf_ops *ops;
 	struct mutex lock;
+//kernel map的数量，vmap时增加    
 	unsigned vmapping_counter;
+//kernel的vaddr ， vmap生成
 	void *vmap_ptr;
+//名字，用于调试
 	const char *exp_name;
 	struct module *owner;
+//链接到所有dma的list    
 	struct list_head list_node;
+//因为dma_buf自身是没有buffer的，所以其所管理的buffer实际
+//是通过priv传过来的
 	void *priv;
 	struct reservation_object *resv;
 
@@ -164,6 +172,7 @@ struct dma_buf {
 struct dma_buf_attachment {
 	struct dma_buf *dmabuf;
 	struct device *dev;
+//链接到 dma_buf->attachments   
 	struct list_head node;
 	void *priv;
 };
@@ -218,7 +227,7 @@ struct dma_buf_attachment *dma_buf_attach(struct dma_buf *dmabuf,
 							struct device *dev);
 void dma_buf_detach(struct dma_buf *dmabuf,
 				struct dma_buf_attachment *dmabuf_attach);
-
+//这个函数应该是第一个调用
 struct dma_buf *dma_buf_export(const struct dma_buf_export_info *exp_info);
 
 int dma_buf_fd(struct dma_buf *dmabuf, int flags);

@@ -44,6 +44,7 @@ struct dma_buf_list {
 	struct mutex lock;
 };
 
+//所有的dma buffer 都挂到此list上
 static struct dma_buf_list db_list;
 
 static int dma_buf_release(struct inode *inode, struct file *file)
@@ -68,7 +69,7 @@ static int dma_buf_release(struct inode *inode, struct file *file)
 	BUG_ON(dmabuf->cb_shared.active || dmabuf->cb_excl.active);
 
 	dmabuf->ops->release(dmabuf);
-
+//从队列总删除
 	mutex_lock(&db_list.lock);
 	list_del(&dmabuf->list_node);
 	mutex_unlock(&db_list.lock);
@@ -81,6 +82,7 @@ static int dma_buf_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
+//将file对应的dmabuffer映射到vma
 static int dma_buf_mmap_internal(struct file *file, struct vm_area_struct *vma)
 {
 	struct dma_buf *dmabuf;
@@ -98,6 +100,7 @@ static int dma_buf_mmap_internal(struct file *file, struct vm_area_struct *vma)
 	return dmabuf->ops->mmap(dmabuf, vma);
 }
 
+//返回seek到的file的位置
 static loff_t dma_buf_llseek(struct file *file, loff_t offset, int whence)
 {
 	struct dma_buf *dmabuf;
@@ -123,7 +126,7 @@ static loff_t dma_buf_llseek(struct file *file, loff_t offset, int whence)
 
 	return base + offset;
 }
-
+//没看懂
 static void dma_buf_poll_cb(struct fence *fence, struct fence_cb *cb)
 {
 	struct dma_buf_poll_cb_t *dcb = (struct dma_buf_poll_cb_t *)cb;
@@ -253,7 +256,7 @@ out:
 	rcu_read_unlock();
 	return events;
 }
-
+//具体干啥还不清楚
 static long dma_buf_ioctl(struct file *file,
 			  unsigned int cmd, unsigned long arg)
 {
@@ -308,6 +311,7 @@ static const struct file_operations dma_buf_fops = {
 /*
  * is_dma_buf_file - Check if struct file* is associated with dma_buf
  */
+//判断此file是否是dma buffer 的file
 static inline int is_dma_buf_file(struct file *file)
 {
 	return file->f_op == &dma_buf_fops;
@@ -328,6 +332,7 @@ static inline int is_dma_buf_file(struct file *file)
  * ops, or error in allocating struct dma_buf, will return negative error.
  *
  */
+//分配一个dma_buf和file，注意此处并不分配dma_buf的内存，而且fd也没有分配 
 struct dma_buf *dma_buf_export(const struct dma_buf_export_info *exp_info)
 {
 	struct dma_buf *dmabuf;
@@ -411,6 +416,7 @@ EXPORT_SYMBOL_GPL(dma_buf_export);
  *
  * On success, returns an associated 'fd'. Else, returns error.
  */
+//为dmabuf分配一个fd 
 int dma_buf_fd(struct dma_buf *dmabuf, int flags)
 {
 	int fd;
@@ -436,6 +442,7 @@ EXPORT_SYMBOL_GPL(dma_buf_fd);
  * file's refcounting done by fget to increase refcount. returns ERR_PTR
  * otherwise.
  */
+//从fd获取dma_buf 
 struct dma_buf *dma_buf_get(int fd)
 {
 	struct file *file;
@@ -460,6 +467,7 @@ EXPORT_SYMBOL_GPL(dma_buf_get);
  *
  * Uses file's refcounting done implicitly by fput()
  */
+//put dmabuf 
 void dma_buf_put(struct dma_buf *dmabuf)
 {
 	if (WARN_ON(!dmabuf || !dmabuf->file))
@@ -478,6 +486,7 @@ EXPORT_SYMBOL_GPL(dma_buf_put);
  * Returns struct dma_buf_attachment * for this attachment; returns ERR_PTR on
  * error.
  */
+ //将dev和dma_buf attach起来，存放在dmabuf->attachments list中
 struct dma_buf_attachment *dma_buf_attach(struct dma_buf *dmabuf,
 					  struct device *dev)
 {
@@ -545,6 +554,7 @@ EXPORT_SYMBOL_GPL(dma_buf_detach);
  * Returns sg_table containing the scatterlist to be returned; returns ERR_PTR
  * on error.
  */
+//返回attach的sg_table 
 struct sg_table *dma_buf_map_attachment(struct dma_buf_attachment *attach,
 					enum dma_data_direction direction)
 {
@@ -597,6 +607,7 @@ EXPORT_SYMBOL_GPL(dma_buf_unmap_attachment);
  *
  * Can return negative error values, returns 0 on success.
  */
+//用于同步 
 int dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 			     enum dma_data_direction direction)
 {
@@ -721,6 +732,7 @@ EXPORT_SYMBOL_GPL(dma_buf_kunmap);
  *
  * Can return negative error values, returns 0 on success.
  */
+//将dmabuf从pgoff map到vma 
 int dma_buf_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma,
 		 unsigned long pgoff)
 {
@@ -771,6 +783,7 @@ EXPORT_SYMBOL_GPL(dma_buf_mmap);
  *
  * Returns NULL on error.
  */
+ //将dma buffer map到kernel
 void *dma_buf_vmap(struct dma_buf *dmabuf)
 {
 	void *ptr;
