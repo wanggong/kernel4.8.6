@@ -136,6 +136,13 @@ struct page {
 	 * avoid collision and false-positive PageTail().
 	 */
 	union {
+/***************************************************************************
+根据不同的情况加入到不同的链表中
+1. 如果此页是某个进程的页，则此page会加入到lru链表或lru缓存中
+2. 如果是空闲页，则将第一个page加到到伙伴系统空闲链表中
+3. 如果是slab也，加入到slab链表
+4. 将页隔离时，加入到隔离链表中
+****************************************************************************/
 		struct list_head lru;	/* Pageout list, eg. active_list
 					 * protected by zone_lru_lock !
 					 * Can be used as a generic list
@@ -443,6 +450,7 @@ struct mm_rss_stat {
 };
 
 struct kioctx_table;
+//每个线程都有自己的mm_struct
 struct mm_struct {
 	struct vm_area_struct *mmap;		/* list of VMAs */
 	struct rb_root mm_rb;

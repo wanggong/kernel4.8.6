@@ -271,7 +271,7 @@ static void update_page_reclaim_stat(struct lruvec *lruvec,
 	if (rotated)
 		reclaim_stat->recent_rotated[file]++;
 }
-//将page转移到active(之前可能在inactive中)的lru链表中
+//将page转移到active(之前在inactive中)的lru链表中
 static void __activate_page(struct page *page, struct lruvec *lruvec,
 			    void *arg)
 {
@@ -304,7 +304,7 @@ static bool need_activate_page_drain(int cpu)
 {
 	return pagevec_count(&per_cpu(activate_page_pvecs, cpu)) != 0;
 }
-//将page(之前可能在inactive lru中)添加到activate_page_pvecs缓存中，之后会添加到active的lru中
+//将page(之前在inactive lru中)添加到activate_page_pvecs缓存中，之后会添加到active的lru中
 void activate_page(struct page *page)
 {
 	page = compound_head(page);
@@ -376,6 +376,7 @@ static void __lru_cache_activate_page(struct page *page)
  * When a newly allocated page is not yet visible, so safe for non-atomic ops,
  * __SetPageReferenced(page) may be substituted for mark_page_accessed(page).
  */
+//此page被访问到了，注意上面的注释，没有看明白 
 void mark_page_accessed(struct page *page)
 {
 	page = compound_head(page);
@@ -444,6 +445,7 @@ EXPORT_SYMBOL(lru_cache_add_file);
 void lru_cache_add(struct page *page)
 {
 	VM_BUG_ON_PAGE(PageActive(page) && PageUnevictable(page), page);
+//page不能是已经在lru中的	
 	VM_BUG_ON_PAGE(PageLRU(page), page);
 	__lru_cache_add(page);
 }
@@ -541,6 +543,8 @@ static void lru_deactivate_file_fn(struct page *page, struct lruvec *lruvec,
 		return;
 
 	/* Some processes are using the page */
+//一个page没有map了是什么情况?	
+//不是map的cache页会映射到进程吗?
 	if (page_mapped(page))
 		return;
 
@@ -552,7 +556,7 @@ static void lru_deactivate_file_fn(struct page *page, struct lruvec *lruvec,
 	ClearPageActive(page);
 	ClearPageReferenced(page);
 	add_page_to_lru_list(page, lruvec, lru);
-
+//下面根据page是否是dirty和是否正在writeback将page放在链表的头部或尾部
 	if (PageWriteback(page) || PageDirty(page)) {
 		/*
 		 * PG_reclaim could be raced with end_page_writeback
@@ -668,7 +672,8 @@ void deactivate_file_page(struct page *page)
  * list and was not an unevictable page.  This is done to accelerate the reclaim
  * of @page.
  */
-//将page添加到lru_deactivate_pvecs中，后面会添加到inactive的lru链表中 
+//将page从active lru添加到lru_deactivate_pvecs中，后面会添加到inactive的lru链表中 
+//这个是将anon的页才active移动到inactive，只是将其加入到inactive链表的头部
 void deactivate_page(struct page *page)
 {
 	if (PageLRU(page) && PageActive(page) && !PageUnevictable(page)) {
