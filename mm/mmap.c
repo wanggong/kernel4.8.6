@@ -1806,7 +1806,7 @@ found:
 	VM_BUG_ON(gap_start + info->length > gap_end);
 	return gap_start;
 }
-//还是查找没有map的地址
+//查找没有map的地址
 unsigned long unmapped_area_topdown(struct vm_unmapped_area_info *info)
 {
 	struct mm_struct *mm = current->mm;
@@ -2349,7 +2349,8 @@ find_extend_vma(struct mm_struct *mm, unsigned long addr)
 	return prev;
 }
 #else
-//扩展stack，此时也仅仅是更新vma的数据，并不设置pte和分配内存
+//扩展stack，此时也仅仅是更新vma的数据，并不设置pte和分配内存，会被
+//__do_page_fault调用
 int expand_stack(struct vm_area_struct *vma, unsigned long address)
 {
 	struct vm_area_struct *prev;

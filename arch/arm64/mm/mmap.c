@@ -60,6 +60,7 @@ unsigned long arch_mmap_rnd(void)
 	return rnd << PAGE_SHIFT;
 }
 
+//返回一个一个进程的起始地址，不固定是为了防止stack溢出攻击
 static unsigned long mmap_base(unsigned long rnd)
 {
 	unsigned long gap = rlimit(RLIMIT_STACK);
@@ -76,6 +77,8 @@ static unsigned long mmap_base(unsigned long rnd)
  * This function, called very early during the creation of a new process VM
  * image, sets up which VM layout function to use:
  */
+
+
 void arch_pick_mmap_layout(struct mm_struct *mm)
 {
 	unsigned long random_factor = 0UL;

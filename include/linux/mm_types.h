@@ -438,23 +438,47 @@ struct mm_rss_stat {
 
 struct kioctx_table;
 struct mm_struct {
+//链表形式存放的vma    
 	struct vm_area_struct *mmap;		/* list of VMAs */
+//以树的形式存放的vma
 	struct rb_root mm_rb;
+/******************************************************************************
+一个进程的vma可能比较多，当一个需要查找一个地址在哪个vma中时，正常通过
+的节点树查找可能也需要较多的时间，根据局部原理，task在此处存放几个最近
+使用过的vma，当查找时首先查看是否在这些cache的vma中，如果查找失败才开始
+通过mm的树进行搜索。
+vmacache:就是上面说的cache
+vmacache_seqnum:当mm删除了vma时，那么这里cache的vma就需要失效，这个字段
+就是判断此处的cache是否失效的，如果vmacache_seqnum!=mm.vmacache_seqnum,
+表示这里的cache需要失效了.
+见task_struct->vmacache_seqnum
+*******************************************************************************/
 	u32 vmacache_seqnum;                   /* per-thread vmacache */
 #ifdef CONFIG_MMU
 	unsigned long (*get_unmapped_area) (struct file *filp,
 				unsigned long addr, unsigned long len,
 				unsigned long pgoff, unsigned long flags);
 #endif
+/******************************************************************************
+根据目前的理解，应用的内存分两种，一个是栈上的内存，一种是其他的内存
+这两种内存应该从内存的两头开始申请，一般情况是stack的内存从高端向低端扩展，
+而其他内存从低端向高端扩展。
+这里的mmap_base就是其他内存开始的地址，而上面的函数指针get_unmapped_area
+就是用来查找尚未被映射的地址。
+这两个值在arch_pick_mmap_layout中设置。
+而stack的地址扩展通过expand_stack进行。
+******************************************************************************/
 	unsigned long mmap_base;		/* base of mmap area */
 	unsigned long mmap_legacy_base;         /* base of mmap area in bottom-up allocations */
+//在setup_new_exec中将其设置为TASK_SIZE，具体什么用
+//没搞清楚，好像是此mm vm的大小
 	unsigned long task_size;		/* size of task vm space */
- //vma中end的最大值   
+ //vma中end的最大值，也没搞明白具体用途   
 	unsigned long highest_vm_end;		/* highest vma end address */
 	pgd_t * pgd;
 	atomic_t mm_users;			/* How many users with user space? */
 	atomic_t mm_count;			/* How many references to "struct mm_struct" (users count as 1) */
-//pte所占的page的个数
+//pte所占的page的个数，仅用于统计
 	atomic_long_t nr_ptes;			/* PTE page table pages */
 #if CONFIG_PGTABLE_LEVELS > 2
 //pmd所占的page的个数
@@ -465,13 +489,13 @@ struct mm_struct {
 
 	spinlock_t page_table_lock;		/* Protects page tables and some counters */
 	struct rw_semaphore mmap_sem;
-
+//没看明白
 	struct list_head mmlist;		/* List of maybe swapped mm's.	These are globally strung
 						 * together off init_mm.mmlist, and are protected
 						 * by mmlist_lock
 						 */
 
-
+//没看明白
 	unsigned long hiwater_rss;	/* High-watermark of RSS usage */
 	unsigned long hiwater_vm;	/* High-water virtual memory usage */
 

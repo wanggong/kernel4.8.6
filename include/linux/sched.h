@@ -1523,6 +1523,16 @@ struct task_struct {
 
 	struct mm_struct *mm, *active_mm;
 	/* per-thread vma caching */
+/********************************************************************
+一个进程的vma可能比较多，当一个需要查找一个地址在哪个vma中时，正常通过
+的节点树查找可能也需要较多的时间，根据局部原理，task在此处存放几个最近
+使用过的vma，当查找时首先查看是否在这些cache的vma中，如果查找失败才开始
+通过mm的树进行搜索。
+vmacache:就是上面说的cache
+vmacache_seqnum:当mm删除了vma时，那么这里cache的vma就需要失效，这个字段
+就是判断此处的cache是否失效的，如果vmacache_seqnum!=mm.vmacache_seqnum,
+表示这里的cache需要失效了
+*********************************************************************/
 	u32 vmacache_seqnum;
 	struct vm_area_struct *vmacache[VMACACHE_SIZE];
 #if defined(SPLIT_RSS_COUNTING)

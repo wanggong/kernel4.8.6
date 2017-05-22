@@ -53,6 +53,17 @@
  *   setup the first chunk containing the kernel static percpu area
  */
 
+ /***********************************************************
+每CPU变量的声明和普通变量的声明一样，主要的区别是使用了
+attribute((section(PER_CPU_BASE_SECTION sec)))来指定该变量被放置
+的段中，普通变量默认会被放置data段或者bss段中。 看到这里有一个问题：
+如果我们只是声明了一个变量，那么如果有多个副本的呢？奥妙在于内核加
+载的过程。一般情况下，ELF文件中的每一个段在内存中只会有一个副本，
+而.data..percpu段再加载后，又被复制了NR_CPUS次，一个每CPU变量的
+多个副本在内存中是不会相邻。 分配内存以及复制.data.percup内容的工
+作由pcpu_embed_first_chunk来完成.
+***********************************************************/
+
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/bitmap.h>
