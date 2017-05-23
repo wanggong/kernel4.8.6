@@ -563,12 +563,12 @@ out:
  * The first tail page's ->compound_order holds the order of allocation.
  * This usage means that zero-order pages may not be compound.
  */
-
+//释放compound page
 void free_compound_page(struct page *page)
 {
 	__free_pages_ok(page, compound_order(page));
 }
-
+//compound page是为hugetlbfs和transparent huge page服务用的
 void prep_compound_page(struct page *page, unsigned int order)
 {
 	int i;

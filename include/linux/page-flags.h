@@ -74,11 +74,13 @@
 enum pageflags {
 	PG_locked,		/* Page is locked. Don't touch. */
 	PG_error,
+//表示此page被访问到了	
 	PG_referenced,
 	PG_uptodate,
 	PG_dirty,
 //表示page被加入到了lru中	
 	PG_lru,
+//表示page在lru的active链表中	
 	PG_active,
 	PG_slab,
 	PG_owner_priv_1,	/* Owner use. If pagecache, fs may use*/
@@ -93,7 +95,9 @@ enum pageflags {
 	PG_swapcache,		/* Swap page: swp_entry_t in private */
 	PG_mappedtodisk,	/* Has blocks allocated on-disk */
 	PG_reclaim,		/* To be reclaimed asap */
+//此page属于swap的page，包括应用的堆，栈等都属于此	
 	PG_swapbacked,		/* Page is backed by RAM/swap */
+//此page已经被加入和将要加入unevictable 的list	
 	PG_unevictable,		/* Page is "unevictable"  */
 #ifdef CONFIG_MMU
 	PG_mlocked,		/* Page is vma mlocked */
@@ -141,6 +145,7 @@ enum pageflags {
 
 struct page;	/* forward declaration */
 
+//返回page的compound head
 static inline struct page *compound_head(struct page *page)
 {
 	unsigned long head = READ_ONCE(page->compound_head);
@@ -150,11 +155,13 @@ static inline struct page *compound_head(struct page *page)
 	return page;
 }
 
+//判断当前page是否是compound的一个page
 static __always_inline int PageTail(struct page *page)
 {
 	return READ_ONCE(page->compound_head) & 1;
 }
 
+//判断一个页面是否是compound
 static __always_inline int PageCompound(struct page *page)
 {
 	return test_bit(PG_head, &page->flags) || PageTail(page);
@@ -945,7 +952,6 @@ static inline void ClearPageHead(struct page *page)
     clear_bit(PG_head, &page->flags);
 }
 
-#endif
 static void set_compound_head(struct page *page, struct page *head)
 {
 	WRITE_ONCE(page->compound_head, (unsigned long)head + 1);

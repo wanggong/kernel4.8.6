@@ -723,6 +723,7 @@ out:
  *
  * On success returns with pte mapped and locked.
  */
+ //检查mm的address是否映射了page，如果是，返回pte
 pte_t *__page_check_address(struct page *page, struct mm_struct *mm,
 			  unsigned long address, spinlock_t **ptlp, int sync)
 {
@@ -1118,6 +1119,7 @@ void page_move_anon_rmap(struct page *page, struct vm_area_struct *vma)
  * @address:	User virtual address of the mapping	
  * @exclusive:	the page is exclusively owned by the current process
  */
+ //设置page的mapping方面的信息
 static void __page_set_anon_rmap(struct page *page,
 	struct vm_area_struct *vma, unsigned long address, int exclusive)
 {
@@ -1133,6 +1135,7 @@ static void __page_set_anon_rmap(struct page *page,
 	 * we must use the _oldest_ possible anon_vma for the
 	 * page mapping!
 	 */
+//为什么要使用root?	 
 	if (!exclusive)
 		anon_vma = anon_vma->root;
 
@@ -1180,6 +1183,7 @@ static void __page_check_anon_rmap(struct page *page,
  * and to ensure that PageAnon is not being upgraded racily to PageKsm
  * (but PageKsm is never downgraded to PageAnon).
  */
+//增加page的引用计数，如果page是第一次rmap则设置page的mapping(anon)有关字段的信息
 void page_add_anon_rmap(struct page *page,
 	struct vm_area_struct *vma, unsigned long address, bool compound)
 {
@@ -1191,6 +1195,7 @@ void page_add_anon_rmap(struct page *page,
  * into pages that are exclusively owned by the current process.
  * Everybody else should continue to use page_add_anon_rmap above.
  */
+ //增加page的引用计数，如果page是第一次rmap则设置page的mapping(anon)有关字段的信息
 void do_page_add_anon_rmap(struct page *page,
 	struct vm_area_struct *vma, unsigned long address, int flags)
 {
@@ -1206,7 +1211,7 @@ void do_page_add_anon_rmap(struct page *page,
 	} else {
 		first = atomic_inc_and_test(&page->_mapcount);
 	}
-
+//如果是第一次加入的话，还要更新统计信息
 	if (first) {
 		int nr = compound ? hpage_nr_pages(page) : 1;
 		/*
@@ -1225,6 +1230,7 @@ void do_page_add_anon_rmap(struct page *page,
 	VM_BUG_ON_PAGE(!PageLocked(page), page);
 
 	/* address might be in next vma when migration races vma_adjust */
+//如果是第一次设置page的mapping方面的信息	
 	if (first)
 		__page_set_anon_rmap(page, vma, address,
 				flags & RMAP_EXCLUSIVE);
@@ -1243,6 +1249,9 @@ void do_page_add_anon_rmap(struct page *page,
  * This means the inc-and-test can be bypassed.
  * Page does not have to be locked.
  */
+
+ //设置page的anon方面的信息
+ //着重关注do_anonymous_page对此函数的调用
 void page_add_new_anon_rmap(struct page *page,
 	struct vm_area_struct *vma, unsigned long address, bool compound)
 {
@@ -1271,6 +1280,7 @@ void page_add_new_anon_rmap(struct page *page,
  *
  * The caller needs to hold the pte lock.
  */
+//添加mapping的引用计数 
 void page_add_file_rmap(struct page *page, bool compound)
 {
 	int i, nr = 1;
@@ -1303,6 +1313,7 @@ out:
 	unlock_page_memcg(page);
 }
 
+//
 static void page_remove_file_rmap(struct page *page, bool compound)
 {
 	int i, nr = 1;
@@ -1391,6 +1402,10 @@ static void page_remove_anon_compound_rmap(struct page *page)
  *
  * The caller needs to hold the pte lock.
  */
+ //减少page的_mapcount，如果为-1，则表示没有其他pte使用此page，就可以更新
+ //统计信息，为何没有释放?
+ //_mapcount即使减到了-1，也不意味着此page能释放，因为如果是文件的cache的话，
+ //还需要等待writeback完成之后才能释放。
 void page_remove_rmap(struct page *page, bool compound)
 {
 	if (!PageAnon(page))
@@ -1435,6 +1450,7 @@ struct rmap_private {
 /*
  * @arg: enum ttu_flags will be passed to this argument
  */
+ //尝试unmap page在vma的map
 static int try_to_unmap_one(struct page *page, struct vm_area_struct *vma,
 		     unsigned long address, void *arg)
 {
@@ -1505,10 +1521,12 @@ static int try_to_unmap_one(struct page *page, struct vm_area_struct *vma,
 
 		set_tlb_ubc_flush_pending(mm, page, pte_dirty(pteval));
 	} else {
+//清除并返回pte	
 		pteval = ptep_clear_flush(vma, address, pte);
 	}
 
 	/* Move the dirty bit to the physical page now the pte is gone. */
+//到这里pte已经清除，但是page有可能是dirty的	
 	if (pte_dirty(pteval))
 		set_page_dirty(page);
 
@@ -1580,6 +1598,7 @@ static int try_to_unmap_one(struct page *page, struct vm_area_struct *vma,
 		dec_mm_counter(mm, mm_counter_file(page));
 
 discard:
+//pte已经成功清除，现在需要减小其引用计数	
 	page_remove_rmap(page, PageHuge(page));
 	put_page(page);
 
@@ -1629,6 +1648,7 @@ static int page_mapcount_is_zero(struct page *page)
  * SWAP_FAIL	- the page is unswappable
  * SWAP_MLOCK	- page is mlocked.
  */
+//遍历page所在的vma，调用try_to_unmap_one，尝试unmap page 
 int try_to_unmap(struct page *page, enum ttu_flags flags)
 {
 	int ret;
@@ -1756,6 +1776,7 @@ static struct anon_vma *rmap_walk_anon_lock(struct page *page,
  * vm_flags for that VMA.  That should be OK, because that vma shouldn't be
  * LOCKED.
  */
+//遍历page所在的vma，调用rwc->rmap_one 
 static int rmap_walk_anon(struct page *page, struct rmap_walk_control *rwc,
 		bool locked)
 {
@@ -1852,6 +1873,7 @@ done:
 	return ret;
 }
 
+//遍历page所在的vma，调用rwc->rmap_one 
 int rmap_walk(struct page *page, struct rmap_walk_control *rwc)
 {
 	if (unlikely(PageKsm(page)))
@@ -1863,6 +1885,7 @@ int rmap_walk(struct page *page, struct rmap_walk_control *rwc)
 }
 
 /* Like rmap_walk, but caller holds relevant rmap lock */
+//遍历page所在的vma，调用rwc->rmap_one 
 int rmap_walk_locked(struct page *page, struct rmap_walk_control *rwc)
 {
 	/* no ksm support for now */

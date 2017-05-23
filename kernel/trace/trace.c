@@ -3178,6 +3178,7 @@ int trace_empty(struct trace_iterator *iter)
 }
 
 /*  Called with trace_event_read_lock() held. */
+//此函数被调用用于将ring buffer打印出来
 enum print_line_t print_trace_line(struct trace_iterator *iter)
 {
 	struct trace_array *tr = iter->tr;

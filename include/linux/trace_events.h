@@ -65,6 +65,8 @@ struct trace_entry {
  * Trace iterator - used by printout routines who present trace
  * results to users and which routines might sleep, etc:
  */
+ //猜测应该是一次跟踪事件，即跟踪函数表调用一次保存下来的一个内容，
+ //然后调用printt_line能将其打印出来
 struct trace_iterator {
 	struct trace_array	*tr;
 	struct tracer		*trace;

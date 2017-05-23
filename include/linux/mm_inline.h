@@ -17,6 +17,7 @@
  * needs to survive until the page is last deleted from the LRU, which
  * could be as far down as __page_cache_release.
  */
+ //根据PG_swapbacked标志判断当前page是否是file cache
 static inline int page_is_file_cache(struct page *page)
 {
 	return !PageSwapBacked(page);
@@ -65,6 +66,7 @@ static __always_inline void del_page_from_lru_list(struct page *page,
  *
  * Returns the base LRU type - file or anon - @page should be on.
  */
+ //根据PG_swapbacked标志判断当前page应该加入到file还是anon链表
 static inline enum lru_list page_lru_base_type(struct page *page)
 {
 	if (page_is_file_cache(page))
@@ -103,6 +105,8 @@ static __always_inline enum lru_list page_off_lru(struct page *page)
  * Returns the LRU list a page should be on, as an index
  * into the array of LRU lists.
  */
+  //根据PG_unevictable ， PG_swapbacked ，PG_active标志判断当前page应该加入
+  //哪个lru链表
 static __always_inline enum lru_list page_lru(struct page *page)
 {
 	enum lru_list lru;

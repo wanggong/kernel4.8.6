@@ -115,6 +115,7 @@ void vma_set_page_prot(struct vm_area_struct *vma)
 	unsigned long vm_flags = vma->vm_flags;
 
 	vma->vm_page_prot = vm_pgprot_modify(vma->vm_page_prot, vm_flags);
+//如果希望这段内存在写时通知，则去掉	VM_SHARED属性，为啥?
 	if (vma_wants_writenotify(vma)) {
 		vm_flags &= ~VM_SHARED;
 		vma->vm_page_prot = vm_pgprot_modify(vma->vm_page_prot,
@@ -1405,7 +1406,16 @@ unsigned long do_mmap(struct file *file, unsigned long addr,
 		*populate = len;
 	return addr;
 }
+/*****************************************************************************************
+系统调用SyS_mmap直接调用此函数
 //调用do_mmap建立vma结构
+//当app分配较大块的内存时，会调用mmap来分配，而不是通过brk。例如
+malloc(20*1024*1024)
+使用strace发现系统调用时mmap，如下
+mmap(NULL, 20975616, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0)
+其中20975616 = 20*1024*1024 + 4096
+*****************************************************************************************/
+
 SYSCALL_DEFINE6(mmap_pgoff, unsigned long, addr, unsigned long, len,
 		unsigned long, prot, unsigned long, flags,
 		unsigned long, fd, unsigned long, pgoff)
@@ -1485,7 +1495,7 @@ SYSCALL_DEFINE1(old_mmap, struct mmap_arg_struct __user *, arg)
  * to the private version (using protection_map[] without the
  * VM_SHARED bit).
  */
-//是否需要写通知，没看 
+//是否需要写通知，没搞明白 
 int vma_wants_writenotify(struct vm_area_struct *vma)
 {
 	vm_flags_t vm_flags = vma->vm_flags;

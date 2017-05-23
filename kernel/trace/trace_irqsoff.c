@@ -324,7 +324,7 @@ check_critical_timing(struct trace_array *tr,
 	/* check if we are still the max latency */
 	if (!report_latency(tr, delta))
 		goto out_unlock;
-
+//如果比之前的值更大就记录下来
 	__trace_function(tr, CALLER_ADDR0, parent_ip, flags, pc);
 	/* Skip 5 functions to get to the irq/preempt enable function */
 	__trace_stack(tr, flags, 5, pc);
@@ -469,7 +469,13 @@ inline void print_irqtrace_events(struct task_struct *curr)
 /*
  * We are only interested in hardirq on/off events:
  */
-//当开关中断时调用下面两个函数，计算时间 
+ /*****************************************************************************************
+irqsoff的实现原理:
+很简单，就是在关中断时调用trace_hardirqs_off，同时记录时间T0，在开中断时调用trace_hardirqs_on
+，同时记录时间T1，T1-T0便是关中断的时间了。
+见:irqflags.h
+*****************************************************************************************/
+
 void trace_hardirqs_on(void)
 {
 	if (!preempt_trace() && irq_trace())
@@ -502,6 +508,7 @@ EXPORT_SYMBOL(trace_hardirqs_off_caller);
 #endif /*  CONFIG_IRQSOFF_TRACER */
 
 #ifdef CONFIG_PREEMPT_TRACER
+//分别在preempt_latency_start和preempt_latency_stop处调用
 void trace_preempt_on(unsigned long a0, unsigned long a1)
 {
 	if (preempt_trace() && !irq_trace())

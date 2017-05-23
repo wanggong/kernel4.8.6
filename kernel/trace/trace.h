@@ -789,6 +789,7 @@ extern unsigned long ftrace_graph_funcs[FTRACE_GRAPH_MAX_FUNCS];
 extern int ftrace_graph_notrace_count;
 extern unsigned long ftrace_graph_notrace_funcs[FTRACE_GRAPH_MAX_FUNCS];
 
+//addr是否是要跟踪的地址
 static inline int ftrace_graph_addr(unsigned long addr)
 {
 	int i;

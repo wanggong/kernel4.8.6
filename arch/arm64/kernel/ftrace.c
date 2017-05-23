@@ -118,6 +118,11 @@ int __init ftrace_dyn_arch_init(void)
  *
  * Note that @frame_pointer is used only for sanity check later.
  */
+ /*************************************wgz**************************************
+ 从上面的注释可以知道graph function的实现方式是:
+ 在_mount的函数中替换掉函数的返回地址，让其返回到ftrace_return_to_handler函数中，
+ 待ftrace_return_to_handler返回之后才真正返回到原来的父函数中。
+ *******************************************************************************/
 void prepare_ftrace_return(unsigned long *parent, unsigned long self_addr,
 			   unsigned long frame_pointer)
 {

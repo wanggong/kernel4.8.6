@@ -67,13 +67,14 @@ struct page {
 						 */
 //当page用于slab时，表示第一个obj的地址						 
 		void *s_mem;			/* slab first object */
-//和多个page连到一块有关，还没有看明白                         
+//和多个page连到一块有关，compound的计数，放在page[1]的这个字段中                         
 		atomic_t compound_mapcount;	/* first tail page */
 		/* page_deferred_list().next	 -- second tail page */
 	};
 
 	/* Second double word */
 	union {
+//对文件cache有用，表示此page在文件的offset	
 		pgoff_t index;		/* Our offset within mapping. */
 		void *freelist;		/* sl[aou]b first free object */
 		/* page_deferred_list().prev	-- second tail page */
@@ -104,8 +105,10 @@ struct page {
 				 * in which case the value MUST BE <= -2.
 				 * See page-flags.h for more details.
 				 */
-// _mapcount字段存放引用页框的页表项数目，确定其是否共享；		
-//默认值是-1
+
+//page在使用时要通过pte索引的，一个page可以在多个用户空间共享使用，这就会将此page映射到
+//多个pte中，这个字段就是用来统计page映射到了多少个pte中。
+
 				atomic_t _mapcount;
 
 				unsigned int active;		/* SLAB */
@@ -120,6 +123,7 @@ struct page {
 			 * Usage count, *USE WRAPPER FUNCTION* when manual
 			 * accounting. See page_ref.h
 			 */
+//此page的引用计数，见get_page和put_page			 
 			atomic_t _refcount;
 		};
 	};
@@ -132,6 +136,13 @@ struct page {
 	 * avoid collision and false-positive PageTail().
 	 */
 	union {
+/***************************************************************************
+根据不同的情况加入到不同的链表中
+1. 如果此页是某个进程的页，则此page会加入到lru链表或lru缓存中
+2. 如果是空闲页，则将第一个page加到到伙伴系统空闲链表中
+3. 如果是slab也，加入到slab链表
+4. 将页隔离时，加入到隔离链表中
+****************************************************************************/
 		struct list_head lru;	/* Pageout list, eg. active_list
 					 * protected by zone_lru_lock !
 					 * Can be used as a generic list
@@ -158,6 +169,7 @@ struct page {
 						 */
 		/* Tail pages of compound page */
 		struct {
+//如果此页是compound的tail页，此处存储compound的首页		
 			unsigned long compound_head; /* If bit zero is set */
 
 			/* First tail page only */
@@ -169,6 +181,7 @@ struct page {
 			 * smaller code on some archtectures.
 			 */
 			unsigned int compound_dtor;
+//对于compound page，第一个tail page的这个字段存放此compound page的order
 			unsigned int compound_order;
 #else
 			unsigned short int compound_dtor;
@@ -437,6 +450,7 @@ struct mm_rss_stat {
 };
 
 struct kioctx_table;
+//每个线程都有自己的mm_struct
 struct mm_struct {
 //链表形式存放的vma    
 	struct vm_area_struct *mmap;		/* list of VMAs */
