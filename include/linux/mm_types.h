@@ -586,10 +586,12 @@ vmacache_seqnum:当mm删除了vma时，那么这里cache的vma就需要失效，这个字段
 	/* address of the bounds directory */
 	void __user *bd_addr;
 #endif
+//此mm使用多少个hugepage
 #ifdef CONFIG_HUGETLB_PAGE
 	atomic_long_t hugetlb_usage;
 #endif
 #ifdef CONFIG_MMU
+//跟最后释放此mm相关，没看明白
 	struct work_struct async_put_work;
 #endif
 };
