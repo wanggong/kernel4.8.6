@@ -260,6 +260,7 @@ unsigned long change_protection(struct vm_area_struct *vma, unsigned long start,
 	return pages;
 }
 
+//将(start,end)之间的flag变为newflags，这期间可能需要将vma分离成两个或三个
 int
 mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **pprev,
 	unsigned long start, unsigned long end, unsigned long newflags)
@@ -310,13 +311,13 @@ mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **pprev,
 	}
 
 	*pprev = vma;
-
+//如果start不是vma的start，将将其从start分成两个vma
 	if (start != vma->vm_start) {
 		error = split_vma(mm, vma, start, 1);
 		if (error)
 			goto fail;
 	}
-
+//如果end不是vma的end，将将其从end分成两个vma
 	if (end != vma->vm_end) {
 		error = split_vma(mm, vma, end, 0);
 		if (error)
@@ -354,6 +355,8 @@ fail:
 	return error;
 }
 //系统调用，修改[addr,end)的pte的prot为prot
+//这个调用可能很频繁，在libc申请一段空间之后，一般会在申请空间的末尾加上
+//一页作为保护，使用此函数就能达到此目的。
 SYSCALL_DEFINE3(mprotect, unsigned long, start, size_t, len,
 		unsigned long, prot)
 {
@@ -435,6 +438,7 @@ SYSCALL_DEFINE3(mprotect, unsigned long, start, size_t, len,
 		tmp = vma->vm_end;
 		if (tmp > end)
 			tmp = end;
+ //将(start,end)之间的flag变为newflags，这期间可能需要将vma分离成两个或三个       
 		error = mprotect_fixup(vma, &prev, nstart, tmp, newflags);
 		if (error)
 			goto out;

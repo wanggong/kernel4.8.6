@@ -450,7 +450,7 @@ struct mm_rss_stat {
 };
 
 struct kioctx_table;
-//每个线程都有自己的mm_struct
+//同一进程的多个线程共享此结构
 struct mm_struct {
 //链表形式存放的vma    
 	struct vm_area_struct *mmap;		/* list of VMAs */
@@ -490,6 +490,7 @@ vmacache_seqnum:当mm删除了vma时，那么这里cache的vma就需要失效，这个字段
  //vma中end的最大值，也没搞明白具体用途   
 	unsigned long highest_vm_end;		/* highest vma end address */
 	pgd_t * pgd;
+//见copy_mm，当指定CLONE_VM时，会增加此计数，表示多了一个task_struct使用者。    
 	atomic_t mm_users;			/* How many users with user space? */
 	atomic_t mm_count;			/* How many references to "struct mm_struct" (users count as 1) */
 //pte所占的page的个数，仅用于统计

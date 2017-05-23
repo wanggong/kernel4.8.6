@@ -861,6 +861,8 @@ out:
  * covered by this vma.
  */
 
+//copy src的pte到dst，如果是cow，则将src和pte都设置为wrprotect(即清除
+//write权限)
 static inline unsigned long
 copy_one_pte(struct mm_struct *dst_mm, struct mm_struct *src_mm,
 		pte_t *dst_pte, pte_t *src_pte, struct vm_area_struct *vma,
@@ -912,6 +914,7 @@ copy_one_pte(struct mm_struct *dst_mm, struct mm_struct *src_mm,
 	 * If it's a COW mapping, write protect it both
 	 * in the parent and the child
 	 */
+//如果是cow，则清除src和dst的pte的write	 
 	if (is_cow_mapping(vm_flags)) {
 		ptep_set_wrprotect(src_mm, addr, src_pte);
 		pte = pte_wrprotect(pte);

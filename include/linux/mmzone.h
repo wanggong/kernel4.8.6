@@ -347,6 +347,16 @@ struct zone {
 	/* Read-mostly fields */
 
 	/* zone watermarks, access with *_wmark_pages(zone) macros */
+/***********************************************************************************
+//根据min_free_kbytes和watermark_scale_factor计算watermark
+//公式见函数
+//min = min_free_kbytes >> (PAGE_SHIFT - 10)
+//low = max（zone->managed_pages* watermark_scale_factor/10000，min>>2）+min
+//high = max（zone->managed_pages* watermark_scale_factor/10000，min>>2）*2+min
+可通过调整
+/proc/sys/vm/min_free_kbytes和/proc/sys/vm/watermark_scale_factor来调整这些值
+详见:__setup_per_zone_wmarks
+************************************************************************************/    
 	unsigned long watermark[NR_WMARK];
 
 	unsigned long nr_reserved_highatomic;
@@ -360,6 +370,13 @@ struct zone {
 	 * recalculated at runtime if the sysctl_lowmem_reserve_ratio sysctl
 	 * changes.
 	 */
+/***************************************************************************	 
+lowmem_reserve是可以通过/proc/sys/vm/lowmem_reserve_ratio设置的	
+作用:在分配内存时，会从最高的zone分配内存，如果分配不到则到较低的zone分配，
+这样就有可能导致较低的zone内存被过度分配，这个数组就是为防止这个而存在的，
+当较高的zone失败需要从较低的zone分配时，较低的zone要保留lowmem_reserve个page
+之后，剩下的内存才会分配给较高的zone
+****************************************************************************/
 	long lowmem_reserve[MAX_NR_ZONES];
 
 #ifdef CONFIG_NUMA

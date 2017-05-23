@@ -247,9 +247,10 @@ compound_page_dtor * const compound_page_dtors[] = {
 	free_transhuge_page,
 #endif
 };
-
+//设置在/proc/sys/vm/min_free_kbytes
 int min_free_kbytes = 1024;
 int user_min_free_kbytes = -1;
+//设置在/proc/sys/vm/watermark_scale_factor
 int watermark_scale_factor = 10;
 
 static unsigned long __meminitdata nr_kernel_pages;
@@ -2747,6 +2748,7 @@ static inline bool should_fail_alloc_page(gfp_t gfp_mask, unsigned int order)
  * one free page of a suitable size. Checking now avoids taking the zone lock
  * to check in the allocation paths if no pages are free.
  */
+//检查以mark为water，分配order内存是否能成功
 bool __zone_watermark_ok(struct zone *z, unsigned int order, unsigned long mark,
 			 int classzone_idx, unsigned int alloc_flags,
 			 long free_pages)
@@ -2827,6 +2829,7 @@ bool zone_watermark_ok(struct zone *z, unsigned int order, unsigned long mark,
 					zone_page_state(z, NR_FREE_PAGES));
 }
 
+//检查以mark为water，分配order内存是否能成功
 static inline bool zone_watermark_fast(struct zone *z, unsigned int order,
 		unsigned long mark, int classzone_idx, unsigned int alloc_flags)
 {
@@ -2846,6 +2849,7 @@ static inline bool zone_watermark_fast(struct zone *z, unsigned int order,
 	 * the caller is !atomic then it'll uselessly search the free
 	 * list. That corner case is then slower but it is harmless.
 	 */
+//从这里看，cma_pages是保留给cma的，但是还没有分配的?	 
 	if (!order && (free_pages - cma_pages) > mark + z->lowmem_reserve[classzone_idx])
 		return true;
 
@@ -3213,6 +3217,7 @@ should_compact_retry(struct alloc_context *ac, unsigned int order, int alloc_fla
 	 */
 	for_each_zone_zonelist_nodemask(zone, z, ac->zonelist, ac->high_zoneidx,
 					ac->nodemask) {
+//为什么此处使用min_wmark?					
 		if (zone_watermark_ok(zone, 0, min_wmark_pages(zone),
 					ac_classzone_idx(ac), alloc_flags))
 			return true;
@@ -6738,10 +6743,16 @@ static void setup_per_zone_lowmem_reserve(void)
 	/* update totalreserve_pages */
 	calculate_totalreserve_pages();
 }
+/***********************************************************************************
+设置watermark数组的值的大小
 //根据min_free_kbytes和watermark_scale_factor计算watermark
 //公式见函数
+//min = min_free_kbytes >> (PAGE_SHIFT - 10)
 //low = max（zone->managed_pages* watermark_scale_factor/10000，min>>2）+min
 //high = max（zone->managed_pages* watermark_scale_factor/10000，min>>2）*2+min
+可通过调整
+/proc/sys/vm/min_free_kbytes和/proc/sys/vm/watermark_scale_factor来调整这些值
+************************************************************************************/
 static void __setup_per_zone_wmarks(void)
 {
 	unsigned long pages_min = min_free_kbytes >> (PAGE_SHIFT - 10);

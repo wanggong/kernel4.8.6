@@ -1000,7 +1000,11 @@ free_pt:
 fail_nomem:
 	return NULL;
 }
-
+/********************************************************************
+pthread_create()会设置的标志是
+int flags = CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | CLONE_THREAD | CLONE_SYSVSEM |
+      CLONE_SETTLS | CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID;
+*********************************************************************/
 static int copy_mm(unsigned long clone_flags, struct task_struct *tsk)
 {
 	struct mm_struct *mm, *oldmm;
@@ -1026,7 +1030,7 @@ static int copy_mm(unsigned long clone_flags, struct task_struct *tsk)
 
 	/* initialize the new vmacache entries */
 	vmacache_flush(tsk);
-
+//如果有CLONE_VM标志，则直接使用父进程的mm
 	if (clone_flags & CLONE_VM) {
 		atomic_inc(&oldmm->mm_users);
 		mm = oldmm;
@@ -1296,6 +1300,29 @@ init_task_pid(struct task_struct *task, enum pid_type type, struct pid *pid)
  * parts of the process environment (as per the clone
  * flags). The actual kick-off is left to the caller.
  */
+/*******************************************************************************
+1.CLONE_VM
+do_fork()需要调用copy_mm()来设置task_struct中的mm和active_mm项，这两个mm_struct数据
+与进程所关联的内存空间相对应。如果do_fork()时指定了CLONE_VM开关，copy_mm()将把新的
+task_struct中的mm和active_mm设置成与current的相同，同时提高该mm_struct的使用者数目
+（mm_struct::mm_users）。也就是说，轻量级进程与父进程共享内存地址空间.
+2.CLONE_FS
+task_struct中利用fs（struct fs_struct *）记录了进程所在文件系统的根目录和当前目录信
+息，do_fork()时调用copy_fs()复制了这个结构；而对于轻量级进程则仅增加fs->count计数，
+与父进程共享相同的fs_struct。也就是说，轻量级进程没有独立的文件系统相关的信息，进
+程中任何一个线程改变当前目录、根目录等信息都将直接影响到其他线程。
+3.CLONE_FILES
+一个进程可能打开了一些文件，在进程结构task_struct中利用files（struct files_struct *）
+来保存进程打开的文件结构（struct file）信息，do_fork()中调用了copy_files()来处理这个
+进程属性；轻量级进程与父进程是共享该结构的，copy_files()时仅增加files->count计数。这
+一共享使得任何线程都能访问进程所维护的打开文件，对它们的操作会直接反映到进程中的其他
+线程。
+4.CLONE_SIGHAND
+每一个Linux进程都可以自行定义对信号的处理方式，在task_struct中的sig（struct signal_struct）
+中使用一个struct k_sigaction结构的数组来保存这个配置信息，do_fork()中的copy_sighand()
+负责复制该信息；轻量级进程不进行复制，而仅仅增加signal_struct::count计数，与父进程共
+享该结构。也就是说，子进程与父进程的信号处理方式完全相同，而且可以相互更改。
+*******************************************************************************/
 static struct task_struct *copy_process(unsigned long clone_flags,
 					unsigned long stack_start,
 					unsigned long stack_size,
@@ -1749,6 +1776,7 @@ struct task_struct *fork_idle(int cpu)
  * It copies the process, and if successful kick-starts
  * it and waits for it to finish using the VM if required.
  */
+//这里有stack_start，所以我们创建一个线程时，栈的地址是已经分配好的
 long _do_fork(unsigned long clone_flags,
 	      unsigned long stack_start,
 	      unsigned long stack_size,

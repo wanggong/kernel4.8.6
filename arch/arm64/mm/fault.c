@@ -189,6 +189,7 @@ static void __do_kernel_fault(struct mm_struct *mm, unsigned long addr,
  * Something tried to access memory that isn't in our memory map. User mode
  * accesses just cause a SIGSEGV
  */
+//user page fault，发送信号结束进程
 static void __do_user_fault(struct task_struct *tsk, unsigned long addr,
 			    unsigned int esr, unsigned int sig, int code,
 			    struct pt_regs *regs)
@@ -212,6 +213,7 @@ static void __do_user_fault(struct task_struct *tsk, unsigned long addr,
 	force_sig_info(sig, &si, tsk);
 }
 
+//page fault没有被处理，报告fault
 static void do_bad_area(unsigned long addr, unsigned int esr, struct pt_regs *regs)
 {
 	struct task_struct *tsk = current;
@@ -254,6 +256,7 @@ good_area:
 	 * occurred. If we encountered a write or exec fault, we must have
 	 * appropriate permissions, otherwise we allow any permission.
 	 */
+//此处判断当前vma是否有有操作的属性，如果连vma都没有，那就是出错了。	 
 	if (!(vma->vm_flags & vm_flags)) {
 		fault = VM_FAULT_BADACCESS;
 		goto out;
@@ -391,6 +394,7 @@ retry:
 	/*
 	 * Handle the "normal" case first - VM_FAULT_MAJOR
 	 */
+//fault是否被修复了?	 
 	if (likely(!(fault & (VM_FAULT_ERROR | VM_FAULT_BADMAP |
 			      VM_FAULT_BADACCESS))))
 		return 0;
@@ -402,6 +406,7 @@ retry:
 	if (!user_mode(regs))
 		goto no_context;
 
+//走到此处说明fault没有被修复，报告之
 	if (fault & VM_FAULT_OOM) {
 		/*
 		 * We ran out of memory, call the OOM killer, and return to
@@ -428,7 +433,7 @@ retry:
 		code = fault == VM_FAULT_BADACCESS ?
 			SEGV_ACCERR : SEGV_MAPERR;
 	}
-
+//报告user page fault
 	__do_user_fault(tsk, addr, esr, sig, code, regs);
 	return 0;
 
