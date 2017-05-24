@@ -429,6 +429,10 @@ struct core_state {
 };
 
 enum {
+//更新函数insert_page，insert_page，	
+//更新时机是在将页面插入到vma并设置pte时，所以有理由猜测这个统计不是物理内存，也不是虚拟内存
+//而是映射过物理内存的虚拟内存(因为一个物理内存可能会被多次映射)，但在task_mem中，这个数据被
+//当作rss使用了，准确吗?重复映射怎么算?
 	MM_FILEPAGES,	/* Resident file mapping pages */
 	MM_ANONPAGES,	/* Resident anonymous pages */
 	MM_SWAPENTS,	/* Anonymous swap entries */
@@ -524,6 +528,7 @@ vmacache_seqnum:当mm删除了vma时，那么这里cache的vma就需要失效，这个字段
 	unsigned long start_code, end_code, start_data, end_data;
 //start_brk:libc的malloc申请内存开始的地址
 //brk:通过malloc申请的最后的地址
+//start_stack:进程主线程的stack(不知道是否是开始地址)，见setup_arg_pages
 	unsigned long start_brk, brk, start_stack;
 	unsigned long arg_start, arg_end, env_start, env_end;
 

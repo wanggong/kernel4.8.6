@@ -263,15 +263,18 @@ static int do_maps_open(struct inode *inode, struct file *file,
  * Indicate if the VMA is a stack for the given task; for
  * /proc/PID/maps that is the stack of the main task.
  */
+//判断当前vma是否是stack 
 static int is_stack(struct proc_maps_private *priv,
 		    struct vm_area_struct *vma, int is_pid)
 {
 	int stack = 0;
 
 	if (is_pid) {
+//这么判断的原因是?	
 		stack = vma->vm_start <= vma->vm_mm->start_stack &&
 			vma->vm_end >= vma->vm_mm->start_stack;
 	} else {
+//根据线程task的sp判断vma是否是其栈	
 		struct inode *inode = priv->inode;
 		struct task_struct *task;
 
