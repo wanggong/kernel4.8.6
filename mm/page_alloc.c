@@ -2509,6 +2509,8 @@ EXPORT_SYMBOL_GPL(split_page);
 
 //将page(order大小)从buddy系统中移除，和分配内存差不多，只不过没有走alloc的路径
 //调用地方，比如compaction
+//条件，在isolate 1<<order个page之后，剩余的内存要满足low watermark的要求，否则
+//返回失败
 int __isolate_free_page(struct page *page, unsigned int order)
 {
 	unsigned long watermark;
@@ -2749,6 +2751,9 @@ static inline bool should_fail_alloc_page(gfp_t gfp_mask, unsigned int order)
  * to check in the allocation paths if no pages are free.
  */
 //检查以mark为water，分配order内存是否能成功
+//检查两个内容
+// 1. 内存总量
+// 2. 有大于order的连续内存
 bool __zone_watermark_ok(struct zone *z, unsigned int order, unsigned long mark,
 			 int classzone_idx, unsigned int alloc_flags,
 			 long free_pages)
@@ -2861,7 +2866,7 @@ bool zone_watermark_ok_safe(struct zone *z, unsigned int order,
 			unsigned long mark, int classzone_idx)
 {
 	long free_pages = zone_page_state(z, NR_FREE_PAGES);
-//这个检查时啥意思?
+//这个检查是啥意思?
 	if (z->percpu_drift_mark && free_pages < z->percpu_drift_mark)
 		free_pages = zone_page_state_snapshot(z, NR_FREE_PAGES);
 
@@ -2935,7 +2940,7 @@ get_page_from_freelist(gfp_t gfp_mask, unsigned int order, int alloc_flags,
 				continue;
 			}
 		}
-
+//根据申请的实际情况使用watermark
 		mark = zone->watermark[alloc_flags & ALLOC_WMARK_MASK];
 		if (!zone_watermark_fast(zone, order, mark,
 				       ac_classzone_idx(ac), alloc_flags)) {
@@ -3197,6 +3202,11 @@ __alloc_pages_direct_compact(gfp_t gfp_mask, unsigned int order,
 
 #endif /* CONFIG_COMPACTION */
 
+//每行代码都能看明白，但是放在一起就看不明白了
+//代码的意识是:ac->zonelist中是否有watermark ok的(以min判断，order=0),如果
+//有返回true，否则返回false
+
+//在order属于(1,3)之间的分配，如果我们还有页面，则可以继续尝试.
 static inline bool
 should_compact_retry(struct alloc_context *ac, unsigned int order, int alloc_flags,
 		     enum compact_result compact_result,
@@ -3215,8 +3225,14 @@ should_compact_retry(struct alloc_context *ac, unsigned int order, int alloc_fla
 	 * Let's give them a good hope and keep retrying while the order-0
 	 * watermarks are OK.
 	 */
+#if 0	 
 	for_each_zone_zonelist_nodemask(zone, z, ac->zonelist, ac->high_zoneidx,
 					ac->nodemask) {
+#else
+    for (z = first_zones_zonelist(ac->zonelist, ac->high_zoneidx, ac->nodemask), zone = zonelist_zone(z);
+          zone;
+          z = next_zones_zonelist(++z, ac->high_zoneidx, ac->nodemask), zone = zonelist_zone(z);) {
+#endif
 //为什么此处使用min_wmark?					
 		if (zone_watermark_ok(zone, 0, min_wmark_pages(zone),
 					ac_classzone_idx(ac), alloc_flags))
@@ -3301,6 +3317,7 @@ static void wake_all_kswapds(unsigned int order, const struct alloc_context *ac)
 
 //将gfp mask转换到alloc flags
 //为何只转换了这几个，是否还有其他的需要转换
+//注意，此处的返回值一定包含ALLOC_WMARK_MIN
 static inline unsigned int
 gfp_to_alloc_flags(gfp_t gfp_mask)
 {
@@ -3350,7 +3367,7 @@ bool gfp_pfmemalloc_allowed(gfp_t gfp_mask)
 //如果gfp mask明确说明使用，则使用
 	if (gfp_mask & __GFP_MEMALLOC)
 		return true;
-//如果在软中断中，或者当前进程已经标记使用了，则使用
+//如果在软中断中，并且当前进程已经标记使用了，则使用
 	if (in_serving_softirq() && (current->flags & PF_MEMALLOC))
 		return true;
 	if (!in_interrupt() &&
@@ -3416,7 +3433,8 @@ should_reclaim_retry(gfp_t gfp_mask, unsigned order,
 		 * Would the allocation succeed if we reclaimed the whole
 		 * available?
 		 */
-//在多个zone中，只要有一个zone是ok的，则继续回收，在回收之前可能会等待
+//在多个zone中，只要有一个zone是ok的，则继续回收(return true)，在回收之前可能会等待,
+//watermark ok不就意味着已经有能申请成功的内存了吗?
 		if (__zone_watermark_ok(zone, order, min_wmark_pages(zone),
 				ac_classzone_idx(ac), alloc_flags, available)) {
 			/*
@@ -3457,7 +3475,9 @@ should_reclaim_retry(gfp_t gfp_mask, unsigned order,
 
 	return false;
 }
-
+/**********************************************************************
+此函数中一定是使用min的watermark(见alloc_flags = gfp_to_alloc_flags)
+************************************************************************/
 static inline struct page *
 __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
 						struct alloc_context *ac)
@@ -3495,6 +3515,8 @@ __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
 	 * kswapd needs to be woken up, and to avoid the cost of setting up
 	 * alloc_flags precisely. So we do that now.
 	 */
+//注意，此处的返回值一定包含ALLOC_WMARK_MIN，所以整个slowpath一定是使用
+//minwater的
 	alloc_flags = gfp_to_alloc_flags(gfp_mask);
 
 	if (gfp_mask & __GFP_KSWAPD_RECLAIM)
@@ -3516,6 +3538,7 @@ __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
 	 * that for allocations that are allowed to ignore watermarks, as the
 	 * ALLOC_NO_WATERMARKS attempt didn't yet happen.
 	 */
+//对于order > 3并且不使用紧急内存的情况，先压缩	 
 	if (can_direct_reclaim && order > PAGE_ALLOC_COSTLY_ORDER &&
 		!gfp_pfmemalloc_allowed(gfp_mask)) {
 //step1.1:进行内存压缩，然后尝试分配内存
@@ -3653,6 +3676,8 @@ retry:
 	 * implementation of the compaction depends on the sufficient amount
 	 * of free memory (see __compaction_suitable)
 	 */
+//如果我们之前回收到了一些页面，而且order是在(1,3)之间，而且watermark能满足min
+//的需要，则继续尝试一下。
 	if (did_some_progress > 0 &&
 			should_compact_retry(ac, order, alloc_flags,
 				compact_result, &compact_priority,

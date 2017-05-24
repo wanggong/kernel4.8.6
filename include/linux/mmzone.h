@@ -33,6 +33,9 @@
  * coalesce naturally under reasonable reclaim pressure and those which
  * will not.
  */
+
+//实在看不懂上面英文的意思，理解是，在order在(1,3)之间之间的内存分配，值得我们
+//多花些力气。
 #define PAGE_ALLOC_COSTLY_ORDER 3
 
 enum {
@@ -356,6 +359,28 @@ struct zone {
 可通过调整
 /proc/sys/vm/min_free_kbytes和/proc/sys/vm/watermark_scale_factor来调整这些值
 详见:__setup_per_zone_wmarks
+
+使用:在分配的不同阶段使用不同的watermark
+
+在__alloc_pages_slowpath中使用WMARK_MIN
+
+同样在__alloc_pages_slowpath中，如果允许使用紧急内存(如是内存管理模块分配内存等，
+gfp_pfmemalloc_allowed返回true)，则使用ALLOC_NO_WATERMARKS，即不保留任何内存。
+
+在compaction中，判断内存是否ok，当要申请的order<=PAGE_ALLOC_COSTLY_ORDER时，使用的WMARK_LOW
+作为watermark ok的参数，当order > PAGE_ALLOC_COSTLY_ORDER是，使用WMARK_HIGH
+
+
+WMARK_HIGH 作为后台回收线程kswapd的标准，watermark high ok时，此线程可以开始睡眠
+
+目前的理解:
+当内存小于 watermark low时，开始启动后台线程回收内存。回收直到内存大于high时才停止。
+
+分配时:
+正常分配以watermark min为标准分配，只有在特殊情况下(内存管理单元自己分配内存等)才能使用
+ALLOC_NO_WATERMARKS。
+
+感觉还是有问题。
 ************************************************************************************/    
 	unsigned long watermark[NR_WMARK];
 

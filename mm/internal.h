@@ -460,6 +460,7 @@ unsigned long reclaim_clean_pages_from_list(struct zone *zone,
 #define ALLOC_WMARK_MIN		WMARK_MIN
 #define ALLOC_WMARK_LOW		WMARK_LOW
 #define ALLOC_WMARK_HIGH	WMARK_HIGH
+//在__alloc_pages_slowpath中，在允许使用紧急内存的情况下使用
 #define ALLOC_NO_WATERMARKS	0x04 /* don't check watermarks at all */
 
 /* Mask to get the watermark bits */

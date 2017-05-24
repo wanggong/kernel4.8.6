@@ -1359,7 +1359,7 @@ static enum compact_result __compact_finished(struct zone *zone, struct compact_
 
 	if (is_via_compact_memory(cc->order))
 		return COMPACT_CONTINUE;
-
+//这里为什么使用low watermark?
 	/* Compaction run is not finished if the watermark is not met */
 	watermark = low_wmark_pages(zone);
 
@@ -1430,7 +1430,7 @@ static enum compact_result __compaction_suitable(struct zone *zone, int order,
 
 	if (is_via_compact_memory(order))
 		return COMPACT_CONTINUE;
-
+//目前看起来在compaction中使用的watermark都是low watermark。
 	watermark = low_wmark_pages(zone);
 	/*
 	 * If watermarks for high-order allocation are already met, there
@@ -1445,6 +1445,8 @@ static enum compact_result __compaction_suitable(struct zone *zone, int order,
 	 * This is because during migration, copies of pages need to be
 	 * allocated and for a short time, the footprint is higher
 	 */
+//如果要进行compaction动作，则要求剩余的内存至少是要申请的两倍+watermark
+//应该是出于效率的考虑，实际上只需要1<<order+watermark也是能成功的。
 	watermark += (2UL << order);
 	if (!__zone_watermark_ok(zone, 0, watermark, classzone_idx,
 				 alloc_flags, wmark_target))
