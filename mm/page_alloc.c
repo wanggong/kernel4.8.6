@@ -1879,7 +1879,8 @@ int move_freepages(struct zone *zone,
 
 	return pages_moved;
 }
-//将page所属的pageblock_nr_pages个page移动到migratetype的freelist中
+//将page所属的pageblock_nr_pages个page移动到migratetype的freelist中，
+//只是移动free的page，不是free的page不会被改变
 int move_freepages_block(struct zone *zone, struct page *page,
 				int migratetype)
 {
@@ -2016,6 +2017,8 @@ int find_suitable_fallback(struct free_area *area, unsigned int order,
  * Reserve a pageblock for exclusive use of high-order atomic allocations if
  * there are no empty page blocks that contain a page with a suitable order
  */
+//将page所在的migrate type标记为MIGRATE_HIGHATOMIC，同时将和page在同一个migrate type
+//的其他free page移动到MIGRATE_HIGHATOMIC的free list中
 static void reserve_highatomic_pageblock(struct page *page, struct zone *zone,
 				unsigned int alloc_order)
 {
@@ -2041,7 +2044,9 @@ static void reserve_highatomic_pageblock(struct page *page, struct zone *zone,
 	if (mt != MIGRATE_HIGHATOMIC &&
 			!is_migrate_isolate(mt) && !is_migrate_cma(mt)) {
 		zone->nr_reserved_highatomic += pageblock_nr_pages;
+		//设置页的migrate type
 		set_pageblock_migratetype(page, MIGRATE_HIGHATOMIC);
+		//将和此页在同一个migrate type的其他的free的页移动到MIGRATE_HIGHATOMIC的free list中
 		move_freepages_block(zone, page, MIGRATE_HIGHATOMIC);
 	}
 
@@ -2055,6 +2060,7 @@ out_unlock:
  * intense memory pressure but failed atomic allocations should be easier
  * to recover from than an OOM.
  */
+//内存不足，将MIGRATE_HIGHATOMIC保留的内存释放出来 
 static void unreserve_highatomic_pageblock(const struct alloc_context *ac)
 {
 	struct zonelist *zonelist = ac->zonelist;
@@ -2637,7 +2643,8 @@ struct page *buffered_rmqueue(struct zone *preferred_zone,
 
 		do {
 			page = NULL;
- //当标记为harder时，首先从MIGRATE_HIGHATOMIC中分配，这种分配失败的几率较低           
+ //当标记为harder时，首先从MIGRATE_HIGHATOMIC中分配，MIGRATE_HIGHATOMIC之专门为
+ //harder分配而保留的一部分内存
 			if (alloc_flags & ALLOC_HARDER) {
 				page = __rmqueue_smallest(zone, order, MIGRATE_HIGHATOMIC);
 				if (page)
@@ -2775,6 +2782,9 @@ bool __zone_watermark_ok(struct zone *z, unsigned int order, unsigned long mark,
 	 */
 //因为只有ALLOC_HARDER才会分配nr_reserved_highatomic的内存，所以如果不是
 //ALLOC_HARDER要将这一部分减掉。
+//注意:z->nr_reserved_highatomic中保存的并不是MIGRATE_HIGHATOMIC中free的page的个数，
+//而是标记为MIGRATE_HIGHATOMIC的page的个数，所以这个值会偏大，按照下面的计算方式会
+//导致free_pages要比实际的值要小，这里或许是个bug。
 	if (likely(!alloc_harder))
 		free_pages -= z->nr_reserved_highatomic;
 	else
@@ -2983,8 +2993,9 @@ try_this_zone:
 			 * If this is a high-order atomic allocation then check
 			 * if the pageblock should be reserved for the future
 			 */
-//这一点没看懂，为什么要reserve啊，将page所在的migratetype的free的page放入到
-//MIGRATE_HIGHATOMIC中
+			 
+//将page所在的migrate type标记为MIGRATE_HIGHATOMIC，同时将和page在同一个migrate type
+//的其他free page移动到MIGRATE_HIGHATOMIC的free list中
 			if (unlikely(order && (alloc_flags & ALLOC_HARDER)))
 				reserve_highatomic_pageblock(page, zone, order);
 
@@ -3271,6 +3282,7 @@ __perform_reclaim(gfp_t gfp_mask, unsigned int order,
 }
 
 /* The really slow allocator path where we enter direct reclaim */
+//直接内存回收分配内存
 static inline struct page *
 __alloc_pages_direct_reclaim(gfp_t gfp_mask, unsigned int order,
 		unsigned int alloc_flags, const struct alloc_context *ac,
@@ -3292,6 +3304,7 @@ retry:
 	 * Shrink them them and try again
 	 */
 	if (!page && !drained) {
+//如果reclaim之后还没有成功，则将highatomic的page也释放出来		
 		unreserve_highatomic_pageblock(ac);
 		drain_all_pages(NULL);
 		drained = true;
@@ -5018,7 +5031,7 @@ static inline unsigned long wait_table_hash_nr_entries(unsigned long pages)
 	 * on IO we've got bigger problems than wait queue collision.
 	 * Limit the size of the wait table to a reasonable size.
 	 */
-//最大4096对应的内存大小是4G 4096*265*4096=4G	 
+//最大4096对应的内存大小是4G 4096*1M=4G	 
 	size = min(size, 4096UL);
 
 	return max(size, 4UL);

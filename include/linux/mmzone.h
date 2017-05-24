@@ -380,10 +380,14 @@ WMARK_HIGH 作为后台回收线程kswapd的标准，watermark high ok时，此线程可以开始睡眠
 正常分配以watermark min为标准分配，只有在特殊情况下(内存管理单元自己分配内存等)才能使用
 ALLOC_NO_WATERMARKS。
 
-感觉还是有问题。
+感觉还是没完全理解。
 ************************************************************************************/    
 	unsigned long watermark[NR_WMARK];
-
+/********************************************************************************
+这个值可能存在bug:
+猜测其用途是为hard申请而保留的free的page，但是代码中其值为类型为MIGRATE_HIGHATOMIC的
+page的个数，具体见reserve_highatomic_pageblock和unreserve_highatomic_pageblock
+**********************************************************************************/
 	unsigned long nr_reserved_highatomic;
 
 	/*
@@ -408,6 +412,9 @@ lowmem_reserve是可以通过/proc/sys/vm/lowmem_reserve_ratio设置的
 	int node;
 #endif
 	struct pglist_data	*zone_pgdat;
+//在SMP的系统中，有大量的每次申请一个page的操作，如果每次都从buddy系统中申请，就
+//需要每次都要lock和unlock，影响系统性能，所以在每个cpu上都有一个链表，这里保存了
+//一些单个页面的page，在申请时直接从当前的cpu的链表中获取就可以了。
 	struct per_cpu_pageset __percpu *pageset;
 
 #ifndef CONFIG_SPARSEMEM
@@ -419,6 +426,7 @@ lowmem_reserve是可以通过/proc/sys/vm/lowmem_reserve_ratio设置的
 #endif /* CONFIG_SPARSEMEM */
 
 	/* zone_start_pfn == zone_start_paddr >> PAGE_SHIFT */
+//本区域管理的开始页面的pfn
 	unsigned long		zone_start_pfn;
 
 	/*
@@ -474,6 +482,7 @@ lowmem_reserve是可以通过/proc/sys/vm/lowmem_reserve_ratio设置的
 	 * freepage counting problem due to racy retrieving migratetype
 	 * of pageblock. Protected by zone->lock.
 	 */
+//此zone的标记为MIGRATE_ISOLATE的pageblock的个数	 
 	unsigned long		nr_isolate_pageblock;
 #endif
 
