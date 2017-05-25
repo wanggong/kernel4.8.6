@@ -34,6 +34,7 @@
 DEFINE_PER_CPU(struct vm_event_state, vm_event_states) = {{0}};
 EXPORT_PER_CPU_SYMBOL(vm_event_states);
 
+//将所有cpu的vm events放入到ret中
 static void sum_vm_events(unsigned long *ret)
 {
 	int cpu;
@@ -54,6 +55,7 @@ static void sum_vm_events(unsigned long *ret)
  * The result is unavoidably approximate - it can change
  * during and after execution of this function.
 */
+//将所有cpu的vm events放入到ret中
 void all_vm_events(unsigned long *ret)
 {
 	get_online_cpus();
@@ -68,6 +70,8 @@ EXPORT_SYMBOL_GPL(all_vm_events);
  * This is adding to the events on one processor
  * but keeps the global counts constant.
  */
+
+//将其他cpu的统计信息放入到当前的cpu的统计信息中
 void vm_events_fold_cpu(int cpu)
 {
 	struct vm_event_state *fold_state = &per_cpu(vm_event_states, cpu);

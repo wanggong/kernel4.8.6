@@ -25,12 +25,19 @@ struct vm_event_state {
 	unsigned long event[NR_VM_EVENT_ITEMS];
 };
 
+#if 0
 DECLARE_PER_CPU(struct vm_event_state, vm_event_states);
+#else
+//extern __attribute__((section(".data..percpu" ""))) __typeof__(struct vm_event_state) vm_event_states;
+struct vm_event_state vm_event_states;
+
+#endif
 
 /*
  * vm counters are allowed to be racy. Use raw_cpu_ops to avoid the
  * local_irq_disable overhead.
  */
+ //这两个啥区别啊?实在是看不懂啊
 static inline void __count_vm_event(enum vm_event_item item)
 {
 	raw_cpu_inc(vm_event_states.event[item]);
@@ -109,6 +116,17 @@ static inline void vm_events_fold_cpu(int cpu)
  */
 extern atomic_long_t vm_zone_stat[NR_VM_ZONE_STAT_ITEMS];
 extern atomic_long_t vm_node_stat[NR_VM_NODE_STAT_ITEMS];
+
+/************************************************
+现在能看到统计信息至少有7个
+1. vm_event_state
+2. vm_zone_stat
+3. vm_node_stat
+4. zone->vm_stat
+5. pgdat->vm_stat
+6. per_cpu_pageset->vm_stat_diff
+7. per_cpu_nodestat->vm_node_stat_diff
+*************************************************/
 
 static inline void zone_page_state_add(long x, struct zone *zone,
 				 enum zone_stat_item item)
