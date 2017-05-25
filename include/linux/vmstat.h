@@ -161,6 +161,7 @@ static inline unsigned long zone_page_state(struct zone *zone,
  * deltas. There is no synchronization so the result cannot be
  * exactly accurate either.
  */
+//更精确的统计zone的某种类型(item)的page数量 
 static inline unsigned long zone_page_state_snapshot(struct zone *zone,
 					enum zone_stat_item item)
 {

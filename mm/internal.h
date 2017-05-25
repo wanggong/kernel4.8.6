@@ -167,7 +167,14 @@ extern int user_min_free_kbytes;
  * at the end of a zone and migrate_pfn begins at the start. Movable pages
  * are moved to the end of a zone during a compaction run and the run
  * completes when free_pfn <= migrate_pfn
+ 翻译一下主要内容:
+ free_pfn:从zone的后面开始扫描，找到free的page
+ migrate_pfn:从zone的开头开始扫描。
+ 从zone的开头(migrate_pfn)开始扫描，找到可以移动的页面p1,同时从zone的结尾(free_pfn)
+ 开始扫描找到free的page p2，然后用p2替换到p1。
+ 当free_pfn <= migrate_pfn时，扫描结束。
  */
+ 
 struct compact_control {
 	struct list_head freepages;	/* List of free pages to migrate to */
 	struct list_head migratepages;	/* List of pages being migrated */
@@ -180,6 +187,7 @@ struct compact_control {
 	bool ignore_skip_hint;		/* Scan blocks even if marked skip */
 	bool direct_compaction;		/* False from kcompactd or /proc/... */
 	bool whole_zone;		/* Whole zone has been scanned */
+//此次扫描要compaction的order    
 	int order;			/* order a direct compactor needs */
 	const gfp_t gfp_mask;		/* gfp mask of a direct compactor */
 	const unsigned int alloc_flags;	/* alloc flags of a direct compactor */

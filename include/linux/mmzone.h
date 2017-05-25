@@ -85,7 +85,7 @@ extern int page_group_by_mobility_disabled;
 
 #define NR_MIGRATETYPE_BITS (PB_migrate_end - PB_migrate + 1)
 #define MIGRATETYPE_MASK ((1UL << NR_MIGRATETYPE_BITS) - 1)
-
+//获取migrate type
 #define get_pageblock_migratetype(page)					\
 	get_pfnblock_flags_mask(page, page_to_pfn(page),		\
 			PB_migrate_end, MIGRATETYPE_MASK)
@@ -541,12 +541,16 @@ lowmem_reserve是可以通过/proc/sys/vm/lowmem_reserve_ratio设置的
 	 * when reading the number of free pages to avoid per-cpu counter
 	 * drift allowing watermarks to be breached
 	 */
+//具体没有看明白到底是干啥，不过在zone_watermark_ok_safe函数中有使用，当
+//free page小于此值时，将在cpu中的free page也加上去
 	unsigned long percpu_drift_mark;
 
 #if defined CONFIG_COMPACTION || defined CONFIG_CMA
+//compact扫描查找free 开始的pfn
 	/* pfn where compaction free scanner should start */
 	unsigned long		compact_cached_free_pfn;
 	/* pfn where async and sync compaction migration scanner should start */
+//compact同步和异步开始的pfn    
 	unsigned long		compact_cached_migrate_pfn[2];
 #endif
 
@@ -556,6 +560,22 @@ lowmem_reserve是可以通过/proc/sys/vm/lowmem_reserve_ratio设置的
 	 * are skipped before trying again. The number attempted since
 	 * last failure is tracked with compact_considered.
 	 */
+/**************************************************************************************
+这三个参数用于控制compaction的失败之后的处理。
+compact_order_failed:表示分配失败的最小的order，例如，如果第一次compaction 16个页面失败，
+则更新compact_order_failed=4，第二次分配8个页面也失败了，则更新compact_order_failed=8，
+第三次分配16个页面失败了，因为之前8个页面都失败了，所以保持8不变。
+compact_defer_shift和compact_considered:
+每次分配失败是都要设置compact_considered=0，
+当第一次分配失败时，设置compact_defer_shift = 2，表示要跳过一次compaction。
+当第二次分配失败时，设置compact_defer_shift = 4，表示要跳过三次compaction。
+依次类推。
+见函数:
+defer_compaction
+compaction_deferred
+compaction_defer_reset
+compaction_restarting
+**************************************************************************************/
 	unsigned int		compact_considered;
 	unsigned int		compact_defer_shift;
 	int			compact_order_failed;
@@ -565,7 +585,7 @@ lowmem_reserve是可以通过/proc/sys/vm/lowmem_reserve_ratio设置的
 	/* Set to true when the PG_migrate_skip bits should be cleared */
 	bool			compact_blockskip_flush;
 #endif
-
+//zone是否有空洞
 	bool			contiguous;
 
 	ZONE_PADDING(_pad3_)
@@ -1165,11 +1185,14 @@ struct mem_section {
 	 * Making it a UL at least makes someone do a cast
 	 * before using it wrong.
 	 */
-//指向page的指针
+//为当前section分配的page的首地址，page是个数组
+//见sparse_init
 	unsigned long section_mem_map;
 
 	/* See declaration of similar field in struct zone */
- //此pagesection的flags指向的内存
+ //此pagesection的flags指向的内存，用于存放migrate type，跟section_mem_map
+ //的概念类似，指示当前section的每一页的migrate type，每页占3bits
+ //见sparse_init
 	unsigned long *pageblock_flags;
 #ifdef CONFIG_PAGE_EXTENSION
 	/*

@@ -1415,7 +1415,7 @@ static enum compact_result compact_finished(struct zone *zone,
  *   COMPACT_PARTIAL  - If the allocation would succeed without compaction
  *   COMPACT_CONTINUE - If compaction should run now
  */
- //是否需要进行compaction
+ //是否适合进行compaction
  //如果能直接分配order的内存，则返回COMPACT_PARTIAL，表示不需要compact
  //compact时需要额外的内存来copy现有的数据，所以需要足够多的free的page，如果
  //free的page数量不够，则返回COMPACT_SKIPPED，表示这个zone不适合compact

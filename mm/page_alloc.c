@@ -1362,6 +1362,7 @@ struct page *__pageblock_pfn_to_page(unsigned long start_pfn,
 	return start_page;
 }
 
+//检查zone是否有空洞，如果没有设置zone->contiguous = true
 void set_zone_contiguous(struct zone *zone)
 {
 	unsigned long block_start_pfn = zone->zone_start_pfn;
@@ -1383,6 +1384,7 @@ void set_zone_contiguous(struct zone *zone)
 	zone->contiguous = true;
 }
 
+//zone是有空洞的，设置zone->contiguous = false
 void clear_zone_contiguous(struct zone *zone)
 {
 	zone->contiguous = false;
