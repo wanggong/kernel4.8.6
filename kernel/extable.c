@@ -48,6 +48,7 @@ void __init sort_main_extable(void)
 }
 
 /* Given an address, look for it in the exception tables. */
+//见<<Linux内核情景分析>>3.8系统调用，第253页
 const struct exception_table_entry *search_exception_tables(unsigned long addr)
 {
 	const struct exception_table_entry *e;

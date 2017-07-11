@@ -39,10 +39,33 @@ static DEFINE_IDA(iommu_group_ida);
 struct iommu_callback_data {
 	const struct iommu_ops *ops;
 };
+/*******************************************************************************
+SMMU的作用是把CPU提交给设备的VA地址（软件概念的VA），直接作为设备发出的地址，
+变成正确的物理地址，访问到物理内存上。
 
+　　MMU通过页表完成这个翻译，SMMU也一样，但SMMU的页表比MMU复杂得多，这受两个要素限制：
+　　第一，一个SMMU控制器可能有多个设备连着，两个设备互相之间可能不会复用同
+        一个页表，需要区分。SMMU用stream id来做这个区分
+　　第二，一个设备可能被多个进程使用，两个进程有两个页表，这个设备需要进行区分。
+        SMMU通过substream id来进行区分
+
+　　这样，设备发出一个地址请求，它的地址就包括stream id, substream id和VA三个部分。
+        前两者定位一个类似MMU的页表体系，后者的执行一个类似MMU的翻译过程。
+
+　　要SMMU硬件正确动作，就需要CPU（就是软件了）给它提供正确的信息，用我以前提过的
+        DFD方法就可以把对应数据模型的充要性建立出来：
+
+　　所以我们现在有了device和iommu两个概念了。下一步是device和iommu的关联，从硬件
+的逻辑空间，应该是每个device有一个指向iommu的指针，但如果软件也这样做，就掩盖了
+一个事实：如果两个设备共享同一个streamid，那么修改其中一个设备的页表体系，也就
+相当于修改了另一个设备的页表体系。所以，修改页表的最小单位不是设备，而是stream id。
+为此，Linux的模型是增加一个iommu_group的概念，iommu_group代表共享同一个streamid的
+一组device（表述在/sys/kernel/iommu_group中）。
+**************************************************************************/
 struct iommu_group {
 	struct kobject kobj;
 	struct kobject *devices_kobj;
+ //此group服务的iommu_device   
 	struct list_head devices;
 	struct mutex mutex;
 	struct blocking_notifier_head notifier;
@@ -169,6 +192,8 @@ static struct kobj_type iommu_group_ktype = {
  * group to be automatically reclaimed once it has no devices or external
  * references.
  */
+ //iommu_group是iommu的最小粒度。
+ //分配一个group
 struct iommu_group *iommu_group_alloc(void)
 {
 	struct iommu_group *group;
@@ -370,6 +395,7 @@ out:
  * This function is called by an iommu driver to add a device into a
  * group.  Adding a device increments the group reference count.
  */
+ //将group和dev绑定起来
 int iommu_group_add_device(struct iommu_group *group, struct device *dev)
 {
 	int ret, i = 0;
@@ -718,6 +744,7 @@ static int get_pci_alias_or_group(struct pci_dev *pdev, u16 alias, void *opaque)
  * Generic device_group call-back function. It just allocates one
  * iommu-group per device.
  */
+//分配一个group 
 struct iommu_group *generic_device_group(struct device *dev)
 {
 	struct iommu_group *group;
@@ -815,13 +842,13 @@ struct iommu_group *iommu_group_get_for_dev(struct device *dev)
 	const struct iommu_ops *ops = dev->bus->iommu_ops;
 	struct iommu_group *group;
 	int ret;
-
+//从这里看，每个device对应一个group
 	group = iommu_group_get(dev);
 	if (group)
 		return group;
 
 	group = ERR_PTR(-EINVAL);
-
+//分配一个group并初始化，将dev的arm_smmu_master_cfg保存到group->iommu_data中
 	if (ops && ops->device_group)
 		group = ops->device_group(dev);
 
@@ -1045,7 +1072,7 @@ void iommu_set_fault_handler(struct iommu_domain *domain,
 	domain->handler_token = token;
 }
 EXPORT_SYMBOL_GPL(iommu_set_fault_handler);
-
+//分配一个domain，初始化并返回
 static struct iommu_domain *__iommu_domain_alloc(struct bus_type *bus,
 						 unsigned type)
 {
@@ -1078,6 +1105,7 @@ void iommu_domain_free(struct iommu_domain *domain)
 }
 EXPORT_SYMBOL_GPL(iommu_domain_free);
 
+//调用domain->ops->attach_dev attach dev
 static int __iommu_attach_device(struct iommu_domain *domain,
 				 struct device *dev)
 {
@@ -1107,6 +1135,7 @@ int iommu_attach_device(struct iommu_domain *domain, struct device *dev)
 	 */
 	mutex_lock(&group->mutex);
 	ret = -EINVAL;
+//为什么不等于1就go out    
 	if (iommu_group_device_count(group) != 1)
 		goto out_unlock;
 
@@ -1181,6 +1210,7 @@ EXPORT_SYMBOL_GPL(iommu_get_domain_for_dev);
  * wish to group them at a higher level (ex. untrusted multi-function
  * PCI devices).  Thus we attach each device.
  */
+//调用domain->ops->attach_dev attach dev 
 static int iommu_group_do_attach_device(struct device *dev, void *data)
 {
 	struct iommu_domain *domain = data;
@@ -1188,6 +1218,7 @@ static int iommu_group_do_attach_device(struct device *dev, void *data)
 	return __iommu_attach_device(domain, dev);
 }
 
+//调用domain->ops->attach_dev attach group中的所有的设备。
 static int __iommu_attach_group(struct iommu_domain *domain,
 				struct iommu_group *group)
 {

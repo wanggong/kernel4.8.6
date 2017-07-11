@@ -8,6 +8,7 @@
 
 extern int __init init_hw_breakpoint(void);
 
+//初始化bp
 static inline void hw_breakpoint_init(struct perf_event_attr *attr)
 {
 	memset(attr, 0, sizeof(*attr));
@@ -21,7 +22,7 @@ static inline void hw_breakpoint_init(struct perf_event_attr *attr)
 	attr->pinned = 1;
 	attr->sample_period = 1;
 }
-
+//初始化ptrace的bp
 static inline void ptrace_breakpoint_init(struct perf_event_attr *attr)
 {
 	hw_breakpoint_init(attr);
@@ -62,6 +63,9 @@ register_wide_hw_breakpoint_cpu(struct perf_event_attr *attr,
 				void *context,
 				int cpu);
 
+//实测发现如果在triggered的函数中添加dump_stack的话，triggered函数会被调用很多此，为何?
+//另外对于添加watchpoint的地址，即使只是普通的地址，每次访问时triggered都能被调用到，好像
+//硬件的监视在缓存的后面(即比缓存更靠近cpu)。
 extern struct perf_event * __percpu *
 register_wide_hw_breakpoint(struct perf_event_attr *attr,
 			    perf_overflow_handler_t triggered,

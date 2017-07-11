@@ -265,6 +265,39 @@ do {									\
 		-EFAULT;						\
 })
 
+
+
+//见<<Linux内核情景分析>>3.8系统调用，第253页
+/****************************************************************************
+目前对copy_from_user和copy_to_user的理解
+首先，kernel中是能直接访问user的数据的，就是说如果我们不调用copy_xx_user而是直接
+使用用户传过来的指针在代码没有bug的情况下，也是可以正常工作的。
+之所以有copy_xx_user这两个函数是因为，如果我们直接使用用户空间的指针，当发生缺页
+异常时将无法回到正常的流程中。
+copy_xx_user能回到正常的流程的原因是将访问用户空间指针的地方添加到了异常的列表中，
+并设置异常返回的地址，这样当传入的用户空间的指针有异常时，将cp的地址跳到异常列表中
+的地址上，然后返回失败。
+见:extable.c文件和<<Linux内核情景分析>>3.8系统调用，第253页
+
+以下来自www
+在深入讲解之前，我们先想一个问题：为什么要使用copy_from_user函数？？？
+理论上，内核空间可以直接使用用户空间传过来的指针，即使要做数据拷贝的动作，
+也可以直接使用memcpy，事实上，在没有MMU的体系架构上，copy_form_user最终的
+实现就是利用了memcpy。但对于大多数有MMU的平台，情况就有了一些变化：用户空
+间传过来的指针是在虚拟地址空间上的，它指向的虚拟地址空间很可能还没有真正映
+射到实际的物理页面上。但这又能怎样呢？缺页导致的异常会透明的被内核予以修复
+(为缺页的地址空间提交新的物理页面)，访问到缺页的指令会继续运行仿佛什么都没
+有发生一样。但这只是用户空间缺页异常的行为，在内核空间这样却因一场必须被显
+示的修复，这是由内核提供的缺页异常处理函数的设计模式决定的，其背后的思想后：
+在内核态中，如果程序试图访问一个尚未提交物理页面的用户空间地址，内核必须对
+此保持警惕而不能像用户空间那样毫无察觉。
+如果内核访问一个尚未被提交物理页面的空间，将产生缺页异常，内核会调用
+do_page_fault，因为异常发生在内核空间，do_page_fault将调用
+search_exception_tables在“ __ex_table”中查找异常指令的修复指令，
+在__arch_copy_from_user函数中经常使用USER宏，这个宏中了定义了
+“__ex_table”section。
+*****************************************************************************/
+
 extern unsigned long __must_check __arch_copy_from_user(void *to, const void __user *from, unsigned long n);
 extern unsigned long __must_check __arch_copy_to_user(void __user *to, const void *from, unsigned long n);
 extern unsigned long __must_check __copy_in_user(void __user *to, const void __user *from, unsigned long n);

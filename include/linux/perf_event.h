@@ -255,6 +255,7 @@ struct pmu {
 	struct list_head		entry;
 
 	struct module			*module;
+//pmu对应的device
 	struct device			*dev;
 	const struct attribute_group	**attr_groups;
 	const char			*name;
@@ -266,8 +267,11 @@ struct pmu {
 	int				capabilities;
 
 	int * __percpu			pmu_disable_count;
+ //根据perf_event_task_context的枚举值来看，有两个perf_cpu_context，一个是sw一个是hw，
+ //所有的pmu共享这两个context
 	struct perf_cpu_context * __percpu pmu_cpu_context;
 	atomic_t			exclusive_cnt; /* < 0: cpu; > 0: tsk */
+//使用sw还是hw的context	
 	int				task_ctx_nr;
 	int				hrtimer_interval_ms;
 
@@ -406,6 +410,7 @@ struct pmu {
 	/*
 	 * PMU specific data size
 	 */
+//每个event要带有的私有数据的大小
 	size_t				task_ctx_size;
 
 
@@ -555,7 +560,12 @@ struct perf_event {
 	 * Locked for modification by both ctx->mutex and ctx->lock; holding
 	 * either sufficies for read.
 	 */
+//此event属于哪个group，pined or flexable，链接到context的group	，如果此event
+//属于某个group，则链接到group_leader->sibling_list
 	struct list_head		group_entry;
+//groupleader，链接子event，event的组织形式是以树的形式组织的，每个节点上都是一个
+//具体的event，而这些event又可以包含很多个子event，当enable时，先enable本event，然后
+//enable子event，采用的是深度搜索模式
 	struct list_head		sibling_list;
 
 	/*
@@ -567,9 +577,11 @@ struct perf_event {
 
 	struct hlist_node		hlist_entry;
 	struct list_head		active_entry;
+//子event的个数
 	int				nr_siblings;
 	int				group_flags;
 	struct perf_event		*group_leader;
+//event对应的pmu，在malloc时赋值	
 	struct pmu			*pmu;
 	void				*pmu_private;
 
@@ -702,6 +714,19 @@ struct perf_event {
  *
  * Used as a container for task events and CPU events as well:
  */
+
+/************************************************************************
+perf的总体理解:
+1.	event是以树的形式组织的，通过perf_event->sibling_list链接子节点，使用深度搜索
+	遍历。
+2.	根event要挂到perf_event_context的pinned_groups或flexible_groups上。
+3.	有两种perf_event_context，
+	一种是全局的，一共有两个，sw和hw，在pmu注册时申请，所有的pmu共享这两个全局的context。
+	另一种是线程相关的，每个线程有两个，也是sw和hw，所以总共有四个context。
+
+	每次当线程被调度时，线程相关的两个context是要被schedin的，
+	不知为何非线程相关的两个context也会被schedin，没明白。	
+************************************************************************/
 struct perf_event_context {
 	struct pmu			*pmu;
 	/*
@@ -717,11 +742,15 @@ struct perf_event_context {
 	struct mutex			mutex;
 
 	struct list_head		active_ctx_list;
+ //分成多个不同的group   
 	struct list_head		pinned_groups;
 	struct list_head		flexible_groups;
+//此context的event
 	struct list_head		event_list;
+//event的个数
 	int				nr_events;
 	int				nr_active;
+//要sched的event的类型，有三种，event_type_t    
 	int				is_active;
 	int				nr_stat;
 	int				nr_freq;
@@ -759,6 +788,7 @@ struct perf_event_context {
 /**
  * struct perf_event_cpu_context - per cpu event context structure
  */
+ //系统一共有俩个此变量，一个是sw，一个是hw
 struct perf_cpu_context {
 	struct perf_event_context	ctx;
 	struct perf_event_context	*task_ctx;

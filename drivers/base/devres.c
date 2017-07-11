@@ -13,6 +13,7 @@
 
 #include "base.h"
 
+//链接到device->devres_head
 struct devres_node {
 	struct list_head		entry;
 	dr_release_t			release;
@@ -21,10 +22,11 @@ struct devres_node {
 	size_t				size;
 #endif
 };
-
+//device分配资源时分配的内容
 struct devres {
 	struct devres_node		node;
 	/* -- 3 pointers */
+  //真正返回的内存  
 	unsigned long long		data[];	/* guarantee ull alignment */
 };
 
@@ -37,8 +39,38 @@ struct devres_group {
 
 #ifdef CONFIG_DEBUG_DEVRES
 static int log_devres = 0;
+#if 0
 module_param_named(log, log_devres, int, S_IRUGO | S_IWUSR);
-
+#else
+static inline int *__check_log(void)
+{
+	return (&(log_devres));
+};
+static const char __param_str_log[] = "devres" "." "log";
+//注意此处的section属性
+static struct kernel_param const __param_log 
+__attribute__ ((unused,__section__ ("__param"),aligned(sizeof(void *))))=
+{ 
+    __param_str_log, 
+    ((struct module *)0), 
+    &param_ops_int,
+    (
+        (sizeof(struct { int: -!!(((00400 | 00040 | 00004) | 00200) < 0); })) 
+        + (sizeof(struct { int: -!!(((00400 | 00040 | 00004) | 00200) > 0777); })) 
+        + (sizeof(struct { int: -!!(((((00400 | 00040 | 00004) | 00200) >> 6) & 4) < ((((00400 | 00040 | 00004) | 00200) >> 3) & 4)); })) 
+        + (sizeof(struct { int: -!!(((((00400 | 00040 | 00004) | 00200) >> 3) & 4) < (((00400 | 00040 | 00004) | 00200) & 4)); })) 
+        + (sizeof(struct { int: -!!(((((00400 | 00040 | 00004) | 00200) >> 6) & 2) < ((((00400 | 00040 | 00004) | 00200) >> 3) & 2)); })) 
+        + (sizeof(struct { int: -!!(((00400 | 00040 | 00004) | 00200) & 2); })) 
+        + ((00400 | 00040 | 00004) | 00200)
+       ), 
+      -1, 
+      0, 
+      { 
+        &log_devres 
+      } 
+};
+struct __UNIQUE_ID_logtype0 {};
+#endif
 static void set_node_dbginfo(struct devres_node *node, const char *name,
 			     size_t size)
 {
@@ -81,6 +113,7 @@ static struct devres_group * node_to_group(struct devres_node *node)
 	return NULL;
 }
 
+//分配一段大小为size的内存，并加入到device的devres中
 static __always_inline struct devres * alloc_dr(dr_release_t release,
 						size_t size, gfp_t gfp, int nid)
 {
@@ -98,6 +131,7 @@ static __always_inline struct devres * alloc_dr(dr_release_t release,
 	return dr;
 }
 
+//将node加入到dev->devres_head中
 static void add_dr(struct device *dev, struct devres_node *node)
 {
 	devres_log(dev, node, "ADD");
@@ -160,6 +194,7 @@ EXPORT_SYMBOL_GPL(devres_alloc_node);
  * RETURNS:
  * 	void
  */
+ //遍历dev的res，调用fn
 void devres_for_each_res(struct device *dev, dr_release_t release,
 			dr_match_t match, void *match_data,
 			void (*fn)(struct device *, void *, void *),
@@ -193,6 +228,7 @@ EXPORT_SYMBOL_GPL(devres_for_each_res);
  *
  * Free devres created with devres_alloc().
  */
+ //释放res
 void devres_free(void *res)
 {
 	if (res) {
@@ -213,6 +249,7 @@ EXPORT_SYMBOL_GPL(devres_free);
  * using devres_alloc().  On driver detach, the associated release
  * function will be invoked and devres will be freed automatically.
  */
+ //将res添加到dev->devres_head
 void devres_add(struct device *dev, void *res)
 {
 	struct devres *dr = container_of(res, struct devres, data);
@@ -224,6 +261,7 @@ void devres_add(struct device *dev, void *res)
 }
 EXPORT_SYMBOL_GPL(devres_add);
 
+//查找devres
 static struct devres *find_dr(struct device *dev, dr_release_t release,
 			      dr_match_t match, void *match_data)
 {
@@ -256,6 +294,7 @@ static struct devres *find_dr(struct device *dev, dr_release_t release,
  * RETURNS:
  * Pointer to found devres, NULL if not found.
  */
+//查找devres
 void * devres_find(struct device *dev, dr_release_t release,
 		   dr_match_t match, void *match_data)
 {
@@ -286,6 +325,8 @@ EXPORT_SYMBOL_GPL(devres_find);
  * RETURNS:
  * Pointer to found or added devres.
  */
+//注释很清晰，查找res，如果不存在，将new_res添加进去，如果存在
+//则将new_res释放，并返回查找到的res
 void * devres_get(struct device *dev, void *new_res,
 		  dr_match_t match, void *match_data)
 {
@@ -404,7 +445,7 @@ int devres_release(struct device *dev, dr_release_t release,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(devres_release);
-
+//将dev的res从first开始到end结束，移动到todo list中
 static int remove_nodes(struct device *dev,
 			struct list_head *first, struct list_head *end,
 			struct list_head *todo)
@@ -474,6 +515,7 @@ static int remove_nodes(struct device *dev,
 	return cnt;
 }
 
+//将dev的res从first开始到end结束，移动到todo list中，然后将其释放掉
 static int release_nodes(struct device *dev, struct list_head *first,
 			 struct list_head *end, unsigned long flags)
 	__releases(&dev->devres_lock)
@@ -505,6 +547,7 @@ static int release_nodes(struct device *dev, struct list_head *first,
  * Release all resources associated with @dev.  This function is
  * called on driver detach.
  */
+//释放所有的dev的res
 int devres_release_all(struct device *dev)
 {
 	unsigned long flags;

@@ -331,6 +331,7 @@ static int get_hbp_len(u8 hbp_len)
 /*
  * Check whether bp virtual address is in kernel space.
  */
+ //检查addr是否在kernel中
 int arch_check_bp_in_kernelspace(struct perf_event *bp)
 {
 	unsigned int len;
@@ -660,7 +661,15 @@ unlock:
 	return 0;
 }
 NOKPROBE_SYMBOL(breakpoint_handler);
-
+//watchpoint的回调函数
+//处理过程是首先回调perf中设置的函数，然后根据step的值决定是否做单步操作。
+/********************************************************************
+watchpoint_handler的执行过程如下:
+1. 首先调用设置的回调函数
+2. 在当前线程禁用watchpoint，并设置single step
+3. single step被执行，
+4. 在single step的异常中恢复watchpoint
+********************************************************************/
 static int watchpoint_handler(unsigned long addr, unsigned int esr,
 			      struct pt_regs *regs)
 {
@@ -715,6 +724,7 @@ static int watchpoint_handler(unsigned long addr, unsigned int esr,
 			goto unlock;
 
 		info->trigger = addr;
+//开始回调，如果用户设置了回调函数，则会调用用户设置的回调函数        
 		perf_bp_event(wp, regs);
 
 		/* Do we need to handle the stepping? */
@@ -724,7 +734,9 @@ static int watchpoint_handler(unsigned long addr, unsigned int esr,
 unlock:
 		rcu_read_unlock();
 	}
-
+//在默认情况下step为0，就是用户要自己处理异常，一般是像下面这样先关掉，然后单步执行
+//然后在打开，所以我们在使用时，可以直接将下面的return去掉，让这里帮我们处理这些事情。
+//在1861上测试ok
 	if (!step)
 		return 0;
 
@@ -733,7 +745,13 @@ unlock:
 	 * cause these to fire via an unprivileged access.
 	 */
 	toggle_bp_registers(AARCH64_DBG_REG_WCR, DBG_ACTIVE_EL0, 0);
-
+/**********************************************************************
+这里碰到的一个错误记录一下:
+在自定义的回调函数中触发一个signal，然后这里禁止watchpoint，
+之后进行single step的调用，结果single step走的是触发signal的那个函数的
+第一条指令；而不是触发watchpoint的指令，因为在触发signal时更改了用户空间的
+堆栈和指针。
+**********************************************************************/
 	if (user_mode(regs)) {
 		debug_info->wps_disabled = 1;
 

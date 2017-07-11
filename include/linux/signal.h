@@ -25,6 +25,7 @@ struct sigqueue {
 
 struct sigpending {
 	struct list_head list;
+//所有待处理的signal    
 	sigset_t signal;
 };
 

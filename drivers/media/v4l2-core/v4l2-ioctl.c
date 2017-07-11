@@ -2872,6 +2872,7 @@ out:
 }
 EXPORT_SYMBOL(video_usercopy);
 
+//此函数会调用usercopy然后调用ioctl
 long video_ioctl2(struct file *file,
 	       unsigned int cmd, unsigned long arg)
 {

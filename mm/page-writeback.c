@@ -278,7 +278,7 @@ static void wb_min_max_ratio(struct bdi_writeback *wb,
  * page cache.  This is the base value for the per-node dirty limits.
  */
  //返回dirtyable page的数量
- //计算方式是free+file_lru-totalreserve_pages
+ //计算方式是free+file-totalreserve_pages
 static unsigned long node_dirtyable_memory(struct pglist_data *pgdat)
 {
 	unsigned long nr_pages = 0;

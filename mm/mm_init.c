@@ -53,7 +53,13 @@ void __init mminit_verify_zonelist(void)
 				zone->name);
 
 			/* Iterate the zonelist */
+ #if 0           
 			for_each_zone_zonelist(zone, z, zonelist, zoneid) {
+#else
+                       for (z = first_zones_zonelist(zonelist, zoneid, ((void *)0)), zone = zonelist_zone(z)
+                        ; zone
+                        ; z = next_zones_zonelist(++z, zoneid, ((void *)0)), zone = zonelist_zone(z)) {
+#endif
 #ifdef CONFIG_NUMA
 				pr_cont("%d:%s ", zone->node, zone->name);
 #else

@@ -479,7 +479,8 @@ static int file_ioctl(struct file *filp, unsigned int cmd,
 {
 	struct inode *inode = file_inode(filp);
 	int __user *p = (int __user *)arg;
-
+//这些预定义的ioctl会优先得到处理，如果在定义cmd时不小心和这些冲突，会
+//得不到处理，在do_vfs_ioctl中也有一些
 	switch (cmd) {
 	case FIBMAP:
 		return ioctl_fibmap(filp, p);
@@ -621,7 +622,8 @@ int do_vfs_ioctl(struct file *filp, unsigned int fd, unsigned int cmd,
 	int error = 0;
 	int __user *argp = (int __user *)arg;
 	struct inode *inode = file_inode(filp);
-
+//这些预定义的ioctl会优先得到处理，如果在定义cmd时不小心和这些冲突，会
+//得不到处理，在file_ioctl中也有一些。
 	switch (cmd) {
 	case FIOCLEX:
 		set_close_on_exec(fd, 1);

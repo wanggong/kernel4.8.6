@@ -1015,6 +1015,7 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 	__arm_smmu_free_bitmap(smmu->context_map, cfg->cbndx);
 }
 
+//分配一个domain
 static struct iommu_domain *arm_smmu_domain_alloc(unsigned type)
 {
 	struct arm_smmu_domain *smmu_domain;
@@ -1404,7 +1405,7 @@ static int arm_smmu_init_pci_device(struct pci_dev *pdev,
 
 	return 0;
 }
-
+//初始化group，将dev的arm_smmu_master_cfg保存到group->iommu_data中
 static int arm_smmu_init_platform_device(struct device *dev,
 					 struct iommu_group *group)
 {
@@ -1439,12 +1440,12 @@ static void arm_smmu_remove_device(struct device *dev)
 {
 	iommu_group_remove_device(dev);
 }
-
+//分配一个group并初始化，将dev的arm_smmu_master_cfg保存到group->iommu_data中
 static struct iommu_group *arm_smmu_device_group(struct device *dev)
 {
 	struct iommu_group *group;
 	int ret;
-
+//分配一个group 
 	if (dev_is_pci(dev))
 		group = pci_device_group(dev);
 	else

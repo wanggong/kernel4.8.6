@@ -171,6 +171,7 @@ void ptrace_disable(struct task_struct *child)
 /*
  * Handle hitting a HW-breakpoint.
  */
+ //当bp被触发时，向应用发送SIGTRAP消息
 static void ptrace_hbptriggered(struct perf_event *bp,
 				struct perf_sample_data *data,
 				struct pt_regs *regs)
@@ -282,6 +283,7 @@ static int ptrace_hbp_set_event(unsigned int note_type,
 	return err;
 }
 
+//创建一个breakpoint
 static struct perf_event *ptrace_hbp_create(unsigned int note_type,
 					    struct task_struct *tsk,
 					    unsigned long idx)
@@ -408,6 +410,7 @@ static int ptrace_hbp_get_addr(unsigned int note_type,
 	return 0;
 }
 
+//获取bp，如果没有则创建一个
 static struct perf_event *ptrace_hbp_get_initialised_bp(unsigned int note_type,
 							struct task_struct *tsk,
 							unsigned long idx)
@@ -429,7 +432,7 @@ static int ptrace_hbp_set_ctrl(unsigned int note_type,
 	struct perf_event *bp;
 	struct perf_event_attr attr;
 	struct arch_hw_breakpoint_ctrl ctrl;
-
+//创建一个bp
 	bp = ptrace_hbp_get_initialised_bp(note_type, tsk, idx);
 	if (IS_ERR(bp)) {
 		err = PTR_ERR(bp);

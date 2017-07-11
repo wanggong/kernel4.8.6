@@ -295,6 +295,7 @@ static void handle_signal(struct ksignal *ksig, struct pt_regs *regs)
 	/*
 	 * Set up the stack frame
 	 */
+//设置返回框架，见Linux情景分析对信号的解释
 	if (is_compat_task()) {
 		if (ksig->ka.sa.sa_flags & SA_SIGINFO)
 			ret = compat_setup_rt_frame(usig, ksig, oldset, regs);
@@ -328,6 +329,7 @@ static void handle_signal(struct ksignal *ksig, struct pt_regs *regs)
  * the kernel can handle, and then we build all the user-level signal handling
  * stack-frames in one go after that.
  */
+//regs保存的是系统调用在进入系统空间前夕用户空间的寄存器拷贝
 static void do_signal(struct pt_regs *regs)
 {
 	unsigned long continue_addr = 0, restart_addr = 0;
@@ -338,8 +340,11 @@ static void do_signal(struct pt_regs *regs)
 	/*
 	 * If we were from a system call, check for system call restarting...
 	 */
+	 //如果syscall大于等于零，说明信号处理中断了系统调用，需要判断是否重新执行系统调用
 	if (syscall >= 0) {
+          //continue_addr是系统调用执行完毕之后要执行的下一条指令的地址    
 		continue_addr = regs->pc;
+          //计算如果系统调用需要重新执行的话，其应该开始的地址
 		restart_addr = continue_addr - (compat_thumb_mode(regs) ? 2 : 4);
 		retval = regs->regs[0];
 
@@ -357,6 +362,7 @@ static void do_signal(struct pt_regs *regs)
 		case -ERESTARTSYS:
 		case -ERESTARTNOINTR:
 		case -ERESTART_RESTARTBLOCK:
+            //需要重新执行系统调用，regs[0]保存系统调用话，pc保存重新执行开始的地址
 			regs->regs[0] = regs->orig_x0;
 			regs->pc = restart_addr;
 			break;

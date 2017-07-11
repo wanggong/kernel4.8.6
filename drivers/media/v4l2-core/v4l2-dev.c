@@ -356,6 +356,7 @@ static long v4l2_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 		if (lock && mutex_lock_interruptible(lock))
 			return -ERESTARTSYS;
+  //×ªµ½vdev->fops->unlocked_ioctl      
 		if (video_is_registered(vdev))
 			ret = vdev->fops->unlocked_ioctl(filp, cmd, arg);
 		if (lock)

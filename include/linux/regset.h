@@ -354,6 +354,7 @@ static inline int copy_regset_to_user(struct task_struct *target,
  * @size:	amount of data to copy, in bytes
  * @data:	user-mode pointer to copy from
  */
+ //函数命名不正确，实际是调用regset->set
 static inline int copy_regset_from_user(struct task_struct *target,
 					const struct user_regset_view *view,
 					unsigned int setno,

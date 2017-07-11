@@ -1569,6 +1569,7 @@ void __init page_alloc_init_late(void)
 
 #ifdef CONFIG_CMA
 /* Free whole pageblock and set its migration type to MIGRATE_CMA. */
+//释放page的的整个block，并设置其migrate为CMA
 void __init init_cma_reserved_pageblock(struct page *page)
 {
 	unsigned i = pageblock_nr_pages;
@@ -2904,6 +2905,17 @@ static bool zone_allows_reclaim(struct zone *local_zone, struct zone *zone)
  * get_page_from_freelist goes through the zonelist trying to allocate
  * a page.
  */
+ /*****************************************************************
+//从zonelist中分配内存
+//分配的顺序是:
+首先考虑的是zone，如果当前zone能满足则从当前zone分配，当前zone不能满足
+才会考虑下一个zone。
+在当前zone能满足的情况下，首先考虑当前的migrate type，如果当前migrate type
+不能满足要求，则考虑备选的migrate type。
+总结如下:
+首先考虑选择哪个node，然后考虑选用那个zone，最后考虑现在那个migrate type，
+后面的选择只有在前面选择确定了之后才有意义。
+******************************************************************/
 static struct page *
 get_page_from_freelist(gfp_t gfp_mask, unsigned int order, int alloc_flags,
 						const struct alloc_context *ac)
@@ -2953,7 +2965,7 @@ get_page_from_freelist(gfp_t gfp_mask, unsigned int order, int alloc_flags,
 				continue;
 			}
 		}
-//根据申请的实际情况使用watermark
+//根据申请的实际情况使用watermark(默认使用的low)
 		mark = zone->watermark[alloc_flags & ALLOC_WMARK_MASK];
 		if (!zone_watermark_fast(zone, order, mark,
 				       ac_classzone_idx(ac), alloc_flags)) {
@@ -3493,6 +3505,14 @@ should_reclaim_retry(gfp_t gfp_mask, unsigned order,
 }
 /**********************************************************************
 此函数中一定是使用min的watermark(见alloc_flags = gfp_to_alloc_flags)
+顺序是:
+1. 如果需要唤醒后台kswapd线程
+2. 使用min的watermark尝试分配内存
+3. 如果order>3尝试compact分配内存
+4. 再次使用min的watermark尝试分配内存
+5. reclaim，然后尝试分配内存
+6. compact 分配内存
+7. oom 分配内存
 ************************************************************************/
 static inline struct page *
 __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
@@ -3534,7 +3554,7 @@ __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
 //注意，此处的返回值一定包含ALLOC_WMARK_MIN，所以整个slowpath一定是使用
 //minwater的
 	alloc_flags = gfp_to_alloc_flags(gfp_mask);
-
+//唤醒内存回收线程开始内存回收
 	if (gfp_mask & __GFP_KSWAPD_RECLAIM)
 		wake_all_kswapds(order, ac);
 
@@ -3610,6 +3630,7 @@ retry:
 	}
 
 	/* Attempt with potentially adjusted zonelist and alloc_flags */
+//从zonelist中分配内存    
 	page = get_page_from_freelist(gfp_mask, order, alloc_flags, ac);
 	if (page)
 		goto got_pg;
@@ -3727,6 +3748,7 @@ __alloc_pages_nodemask(gfp_t gfp_mask, unsigned int order,
 {
 	struct page *page;
 	unsigned int cpuset_mems_cookie;
+//默认使用watermark low分配内存    
 	unsigned int alloc_flags = ALLOC_WMARK_LOW;
 	gfp_t alloc_mask = gfp_mask; /* The gfp_t that was actually used for allocation */
 	struct alloc_context ac = {

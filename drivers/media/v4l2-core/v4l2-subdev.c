@@ -455,6 +455,8 @@ static long subdev_do_ioctl(struct file *file, unsigned int cmd, void *arg)
 	return 0;
 }
 
+//如果不是CONFIG_COMPAT的话，这里会调用usercopy，然后调用ioctl，这样
+//在后续就不需要在调用ioctl了
 static long subdev_ioctl(struct file *file, unsigned int cmd,
 	unsigned long arg)
 {
@@ -462,6 +464,8 @@ static long subdev_ioctl(struct file *file, unsigned int cmd,
 }
 
 #ifdef CONFIG_COMPAT
+//如果是CONFIG_COMPAT，这里并没有调用usercopy，所以我们需要自己调用usercopy
+//函数
 static long subdev_compat_ioctl32(struct file *file, unsigned int cmd,
 	unsigned long arg)
 {

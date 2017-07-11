@@ -277,6 +277,7 @@ __weak void arch_unregister_hw_breakpoint(struct perf_event *bp)
  *       ((per_cpu(info->flexible, *) > 1) + max(per_cpu(info->cpu_pinned, *))
  *            + max(per_cpu(info->tsk_pinned, *))) < HBP_NUM
  */
+ //每种类型的bp硬件是由数量限定的，为bp分配一个watchpoint
 static int __reserve_bp_slot(struct perf_event *bp)
 {
 	struct bp_busy_slots slots = {0};
@@ -311,6 +312,7 @@ static int __reserve_bp_slot(struct perf_event *bp)
 	return 0;
 }
 
+ //每种类型的bp硬件是由数量限定的，为bp分配一个watchpoint
 int reserve_bp_slot(struct perf_event *bp)
 {
 	int ret;
@@ -366,7 +368,7 @@ int dbg_release_bp_slot(struct perf_event *bp)
 
 	return 0;
 }
-
+//检查bp是否ok
 static int validate_hw_breakpoint(struct perf_event *bp)
 {
 	int ret;
@@ -374,7 +376,7 @@ static int validate_hw_breakpoint(struct perf_event *bp)
 	ret = arch_validate_hwbkpt_settings(bp);
 	if (ret)
 		return ret;
-
+ //检查addr是否在kernel中，对kernel的监控有些额外的限制
 	if (arch_check_bp_in_kernelspace(bp)) {
 		if (bp->attr.exclude_kernel)
 			return -EINVAL;
@@ -389,6 +391,7 @@ static int validate_hw_breakpoint(struct perf_event *bp)
 	return 0;
 }
 
+//reserve slot，同时做检查工作
 int register_perf_hw_breakpoint(struct perf_event *bp)
 {
 	int ret;
@@ -555,6 +558,7 @@ static void bp_perf_event_destroy(struct perf_event *event)
 	release_bp_slot(event);
 }
 
+//为watchpoint做一些reverse和检查工作
 static int hw_breakpoint_event_init(struct perf_event *bp)
 {
 	int err;
@@ -586,12 +590,13 @@ static int hw_breakpoint_add(struct perf_event *bp, int flags)
 		bp->hw.last_period = bp->hw.sample_period;
 		perf_swevent_set_period(bp);
 	}
-
+//install
 	return arch_install_hw_breakpoint(bp);
 }
 
 static void hw_breakpoint_del(struct perf_event *bp, int flags)
 {
+//uninstall
 	arch_uninstall_hw_breakpoint(bp);
 }
 
@@ -605,7 +610,29 @@ static void hw_breakpoint_stop(struct perf_event *bp, int flags)
 	bp->hw.state = PERF_HES_STOPPED;
 }
 
+/************************************************
+add被调用路径如下
+dump_backtrace+0x0/0x138
+show_stack+0x1c/0x28
+dump_stack+0x1c/0x28
+hw_breakpoint_add+0x2c/0x44
+event_sched_in.isra.70+0x68/0x140
+group_sched_in+0x5c/0x18c
+ctx_sched_in.isra.71+0x140/0x17c
+perf_event_sched_in.isra.74+0x30/0x7c
+perf_event_context_sched_in.isra.75+0x84/0x128
+__perf_event_task_sched_in+0x18c/0x19c
+finish_task_switch+0x124/0x160
+__schedule+0x41c/0x83c
+schedule+0x2c/0x70
+futex_wait_queue_me+0xe0/0x1a0
+futex_wait+0xf4/0x24c
+do_futex+0x1a0/0xa4c
+SyS_futex+0x98/0x1b0
+
+*************************************************/
 static struct pmu perf_breakpoint = {
+    //类型属于sw
 	.task_ctx_nr	= perf_sw_context, /* could eventually get its own */
 
 	.event_init	= hw_breakpoint_event_init,
@@ -615,19 +642,19 @@ static struct pmu perf_breakpoint = {
 	.stop		= hw_breakpoint_stop,
 	.read		= hw_breakpoint_pmu_read,
 };
-
+//初始化hw bp
 int __init init_hw_breakpoint(void)
 {
 	int cpu, err_cpu;
 	int i;
-
+//获取指令断点和数据断点的个数，在1861上，分别是6和4
 	for (i = 0; i < TYPE_MAX; i++)
 		nr_slots[i] = hw_breakpoint_slots(i);
 
 	for_each_possible_cpu(cpu) {
 		for (i = 0; i < TYPE_MAX; i++) {
 			struct bp_cpuinfo *info = get_bp_info(cpu, i);
-
+//总共有nr_slots[i]多个监控点，每个cpu都能全部使用
 			info->tsk_pinned = kcalloc(nr_slots[i], sizeof(int),
 							GFP_KERNEL);
 			if (!info->tsk_pinned)
@@ -636,7 +663,7 @@ int __init init_hw_breakpoint(void)
 	}
 
 	constraints_initialized = 1;
-
+//注册bp的pmu
 	perf_pmu_register(&perf_breakpoint, "breakpoint", PERF_TYPE_BREAKPOINT);
 
 	return register_die_notifier(&hw_breakpoint_exceptions_nb);

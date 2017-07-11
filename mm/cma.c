@@ -74,13 +74,14 @@ static unsigned long cma_bitmap_aligned_offset(const struct cma *cma,
 	return (ALIGN(cma->base_pfn, (1UL << align_order))
 		- cma->base_pfn) >> cma->order_per_bit;
 }
-
+//pages个page对应cma的多少个bit
 static unsigned long cma_bitmap_pages_to_bits(const struct cma *cma,
 					      unsigned long pages)
 {
 	return ALIGN(pages, 1UL << cma->order_per_bit) >> cma->order_per_bit;
 }
 
+//清除(pfn,pfn+count)所对应的bit
 static void cma_clear_bitmap(struct cma *cma, unsigned long pfn,
 			     unsigned int count)
 {
@@ -93,7 +94,7 @@ static void cma_clear_bitmap(struct cma *cma, unsigned long pfn,
 	bitmap_clear(cma->bitmap, bitmap_no, bitmap_count);
 	mutex_unlock(&cma->lock);
 }
-
+//申请cma->bitmap，并设置cma中的页面的migrate type为CMA
 static int __init cma_activate_area(struct cma *cma)
 {
 	int bitmap_size = BITS_TO_LONGS(cma_bitmap_maxno(cma)) * sizeof(long);
@@ -108,7 +109,7 @@ static int __init cma_activate_area(struct cma *cma)
 
 	WARN_ON_ONCE(!pfn_valid(pfn));
 	zone = page_zone(pfn_to_page(pfn));
-
+//设置所有cma的migrate type为CMA
 	do {
 		unsigned j;
 
@@ -141,7 +142,7 @@ err:
 	cma->count = 0;
 	return -EINVAL;
 }
-
+//初始化所有的cma，这个要在所有的cma_init_reserved_mem调用完毕后执行
 static int __init cma_init_reserved_areas(void)
 {
 	int i;
@@ -166,6 +167,7 @@ core_initcall(cma_init_reserved_areas);
  *
  * This function creates custom contiguous area from already reserved memory.
  */
+ //预留(base,base+size)为cma的内存
 int __init cma_init_reserved_mem(phys_addr_t base, phys_addr_t size,
 				 unsigned int order_per_bit,
 				 struct cma **res_cma)
@@ -267,6 +269,7 @@ int __init cma_declare_contiguous(phys_addr_t base,
 	 * migratetype page by page allocator's buddy algorithm. In the case,
 	 * you couldn't get a contiguous memory, which is not what we want.
 	 */
+//cma的alignment应该是(MAX_ORDER - 1, pageblock_order)中较大的那个	 
 	alignment = max(alignment,  (phys_addr_t)PAGE_SIZE <<
 			  max_t(unsigned long, MAX_ORDER - 1, pageblock_order));
 	base = ALIGN(base, alignment);
@@ -362,6 +365,7 @@ err:
  * This function allocates part of contiguous memory on specific
  * contiguous memory area.
  */
+//从cma中分配count个连续的page 
 struct page *cma_alloc(struct cma *cma, size_t count, unsigned int align)
 {
 	unsigned long mask, offset;

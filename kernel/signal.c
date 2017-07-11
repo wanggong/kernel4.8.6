@@ -168,6 +168,7 @@ void recalc_sigpending(void)
 	(sigmask(SIGSEGV) | sigmask(SIGBUS) | sigmask(SIGILL) | \
 	 sigmask(SIGTRAP) | sigmask(SIGFPE) | sigmask(SIGSYS))
 
+//找到一个待处理的signal
 int next_signal(struct sigpending *pending, sigset_t *mask)
 {
 	unsigned long i, *s, *m, x;
@@ -2127,6 +2128,8 @@ static int ptrace_signal(int signr, siginfo_t *info)
 	return signr;
 }
 
+//这里并不只是get signal,对于是ignore和default的都会在这里边处理了
+//还有ptrace的信号也在这里边处理了，这里返回的是用户自定义处理的信号。
 int get_signal(struct ksignal *ksig)
 {
 	struct sighand_struct *sighand = current->sighand;
@@ -2196,12 +2199,13 @@ relock:
 			spin_unlock_irq(&sighand->siglock);
 			goto relock;
 		}
-
+//取出未被屏蔽的signal，当一个信号正在被处理时，会设置到blocked上，所以同一个信号处理是不会重入
+//的，但是不同的信号处理是可以并行的。
 		signr = dequeue_signal(current, &current->blocked, &ksig->info);
 
 		if (!signr)
 			break; /* will return 0 */
-
+//如果当前进程被跟踪，特殊处理
 		if (unlikely(current->ptrace) && signr != SIGKILL) {
 			signr = ptrace_signal(signr, &ksig->info);
 			if (!signr)
@@ -2212,9 +2216,10 @@ relock:
 
 		/* Trace actually delivered signals. */
 		trace_signal_deliver(signr, &ksig->info, ka);
-
+//ignore不做任何处理
 		if (ka->sa.sa_handler == SIG_IGN) /* Do nothing.  */
 			continue;
+//如果是用户自己设置的处理，则转到用户的函数        
 		if (ka->sa.sa_handler != SIG_DFL) {
 			/* Run the handler.  */
 			ksig->ka = *ka;
@@ -2224,7 +2229,7 @@ relock:
 
 			break; /* will return non-zero "signr" value */
 		}
-
+//这之后都是处理SIG_DFL的了
 		/*
 		 * Now we are doing the default action for this signal.
 		 */
@@ -2475,6 +2480,7 @@ static void __set_task_blocked(struct task_struct *tsk, const sigset_t *newset)
  * It is wrong to change ->blocked directly, this helper should be used
  * to ensure the process can't miss a shared signal we are going to block.
  */
+ //设置blocked的signal
 void set_current_blocked(sigset_t *newset)
 {
 	sigdelsetmask(newset, sigmask(SIGKILL) | sigmask(SIGSTOP));

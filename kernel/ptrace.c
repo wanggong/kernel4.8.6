@@ -807,6 +807,7 @@ find_regset(const struct user_regset_view *view, unsigned int type)
 	return NULL;
 }
 
+//查找对应的regset，并调用
 static int ptrace_regset(struct task_struct *task, int req, unsigned int type,
 			 struct iovec *kiov)
 {

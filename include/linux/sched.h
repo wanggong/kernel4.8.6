@@ -1669,9 +1669,10 @@ vmacache_seqnum:当mm删除了vma时，那么这里cache的vma就需要失效，这个字段
 /* signal handlers */
 	struct signal_struct *signal;
 	struct sighand_struct *sighand;
-
+//当signal正在处理时，会添加到block中
 	sigset_t blocked, real_blocked;
 	sigset_t saved_sigmask;	/* restored if set_restore_sigmask() was used */
+//待处理的signal    
 	struct sigpending pending;
 
 	unsigned long sas_ss_sp;
@@ -1785,6 +1786,7 @@ vmacache_seqnum:当mm删除了vma时，那么这里cache的vma就需要失效，这个字段
 	struct futex_pi_state *pi_state_cache;
 #endif
 #ifdef CONFIG_PERF_EVENTS
+//每个线程都有两个perf event context，已经hw，一个sw
 	struct perf_event_context *perf_event_ctxp[perf_nr_task_contexts];
 	struct mutex perf_event_mutex;
 	struct list_head perf_event_list;

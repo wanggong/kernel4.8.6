@@ -841,6 +841,7 @@ struct device {
 	u32			id;	/* device instance */
 
 	spinlock_t		devres_lock;
+//链接devres_node数据结构，表示此device分配的资源(目前看起来是内存)    
 	struct list_head	devres_head;
 
 	struct klist_node	knode_class;
@@ -848,6 +849,7 @@ struct device {
 	const struct attribute_group **groups;	/* optional groups */
 
 	void	(*release)(struct device *dev);
+    
 	struct iommu_group	*iommu_group;
 
 	bool			offline_disabled:1;

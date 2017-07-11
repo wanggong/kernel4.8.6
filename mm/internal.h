@@ -103,11 +103,15 @@ extern pmd_t *mm_find_pmd(struct mm_struct *mm, unsigned long address);
  * by a const pointer.
  */
 struct alloc_context {
+//准备要分配的zonelist
 	struct zonelist *zonelist;
 	nodemask_t *nodemask;
+//最合适的zone，其实就是zonelist中满足要求的第一个zone    
 	struct zoneref *preferred_zoneref;
 	int migratetype;
+//可以分配的最大的zoneidx，小于等于此的都可以
 	enum zone_type high_zoneidx;
+//如果申请的buffer是用来写的，则设置此标志，
 	bool spread_dirty_pages;
 };
 

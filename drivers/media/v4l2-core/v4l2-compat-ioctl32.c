@@ -1049,6 +1049,7 @@ long v4l2_compat_ioctl32(struct file *file, unsigned int cmd, unsigned long arg)
 	if (_IOC_TYPE(cmd) == 'V' && _IOC_NR(cmd) < BASE_VIDIOC_PRIVATE)
 		ret = do_video_ioctl(file, cmd, arg);
 	else if (vdev->fops->compat_ioctl32)
+ //×ªµ½vdev->fops->compat_ioctl32       
 		ret = vdev->fops->compat_ioctl32(file, cmd, arg);
 
 	if (ret == -ENOIOCTLCMD)

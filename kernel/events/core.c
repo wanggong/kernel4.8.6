@@ -373,6 +373,7 @@ static DEFINE_PER_CPU(atomic_t, perf_cgroup_events);
 static DEFINE_PER_CPU(int, perf_sched_cb_usages);
 static DEFINE_PER_CPU(struct pmu_event_list, pmu_sb_events);
 
+//不同种类的event
 static atomic_t nr_mmap_events __read_mostly;
 static atomic_t nr_comm_events __read_mostly;
 static atomic_t nr_task_events __read_mostly;
@@ -544,7 +545,7 @@ void perf_sample_event_took(u64 sample_len_ns)
 			     sysctl_perf_event_sample_rate);
 	}
 }
-
+//每个event都有个唯一的eventid
 static atomic64_t perf_event_id;
 
 static void cpu_ctx_sched_out(struct perf_cpu_context *cpuctx,
@@ -1065,6 +1066,7 @@ static int perf_mux_hrtimer_restart(struct perf_cpu_context *cpuctx)
 	return 0;
 }
 
+//调用pmu->pmu_disable
 void perf_pmu_disable(struct pmu *pmu)
 {
 	int *count = this_cpu_ptr(pmu->pmu_disable_count);
@@ -1458,6 +1460,7 @@ ctx_group_list(struct perf_event *event, struct perf_event_context *ctx)
  * Add a event from the lists for its context.
  * Must be called with ctx->mutex and ctx->lock held.
  */
+//将event添加到context中
 static void
 list_add_event(struct perf_event *event, struct perf_event_context *ctx)
 {
@@ -1472,6 +1475,7 @@ list_add_event(struct perf_event *event, struct perf_event_context *ctx)
 	 * list, group events are kept attached to the group so that
 	 * perf_group_detach can, at all times, locate all siblings.
 	 */
+//将event添加到context的group	 
 	if (event->group_leader == event) {
 		struct list_head *list;
 
@@ -1613,6 +1617,7 @@ static bool perf_event_validate_size(struct perf_event *event)
 	return true;
 }
 
+//如果event属于某个group，则将其添加到对应group的subling中
 static void perf_group_attach(struct perf_event *event)
 {
 	struct perf_event *group_leader = event->group_leader, *pos;
@@ -1774,6 +1779,7 @@ event_filter_match(struct perf_event *event)
 	       perf_cgroup_match(event) && pmu_filter_match(event);
 }
 
+//remove event
 static void
 event_sched_out(struct perf_event *event,
 		  struct perf_cpu_context *cpuctx,
@@ -1824,6 +1830,10 @@ event_sched_out(struct perf_event *event,
 	perf_pmu_enable(event->pmu);
 }
 
+//remove event和其子event
+//event的组织形式是以树的形式组织的，每个节点上都是一个
+//具体的event，而这些event又可以包含很多个子event，当enable时，先enable本event，然后
+//enable子event，采用的是深度搜索模式
 static void
 group_sched_out(struct perf_event *group_event,
 		struct perf_cpu_context *cpuctx,
@@ -1999,6 +2009,7 @@ static void perf_set_shadow_time(struct perf_event *event,
 static void perf_log_throttle(struct perf_event *event, int enable);
 static void perf_log_itrace_start(struct perf_event *event);
 
+//启用event
 static int
 event_sched_in(struct perf_event *event,
 		 struct perf_cpu_context *cpuctx,
@@ -2040,7 +2051,7 @@ event_sched_in(struct perf_event *event,
 	perf_set_shadow_time(event, ctx, tstamp);
 
 	perf_log_itrace_start(event);
-
+//调用pmu->add将event添加到pmu
 	if (event->pmu->add(event, PERF_EF_START)) {
 		event->state = PERF_EVENT_STATE_INACTIVE;
 		event->oncpu = -1;
@@ -2066,6 +2077,11 @@ out:
 	return ret;
 }
 
+//每个event都是属于某个group的，即使某个group只有一个event
+//这里的顺序是先调用本event，然后调用本event的子event
+//event的组织形式是以树的形式组织的，每个节点上都是一个
+//具体的event，而这些event又可以包含很多个子event，当enable时，先enable本event，然后
+//enable子event，采用的是深度搜索模式
 static int
 group_sched_in(struct perf_event *group_event,
 	       struct perf_cpu_context *cpuctx,
@@ -2080,7 +2096,7 @@ group_sched_in(struct perf_event *group_event,
 		return 0;
 
 	pmu->start_txn(pmu, PERF_PMU_TXN_ADD);
-
+//sched in本event
 	if (event_sched_in(group_event, cpuctx, ctx)) {
 		pmu->cancel_txn(pmu);
 		perf_mux_hrtimer_restart(cpuctx);
@@ -2090,6 +2106,7 @@ group_sched_in(struct perf_event *group_event,
 	/*
 	 * Schedule in siblings as one group (if any):
 	 */
+//sched in子event
 	list_for_each_entry(event, &group_event->sibling_list, group_entry) {
 		if (event_sched_in(event, cpuctx, ctx)) {
 			partial_group = event;
@@ -2199,6 +2216,7 @@ static void task_ctx_sched_out(struct perf_cpu_context *cpuctx,
 	ctx_sched_out(ctx, cpuctx, EVENT_ALL);
 }
 
+//sched in cpu context，和task context
 static void perf_event_sched_in(struct perf_cpu_context *cpuctx,
 				struct perf_event_context *ctx,
 				struct task_struct *task)
@@ -2211,6 +2229,7 @@ static void perf_event_sched_in(struct perf_cpu_context *cpuctx,
 		ctx_sched_in(ctx, cpuctx, EVENT_FLEXIBLE, task);
 }
 
+//context 添加或删除了event，重新调度一次
 static void ctx_resched(struct perf_cpu_context *cpuctx,
 			struct perf_event_context *task_ctx)
 {
@@ -2936,12 +2955,13 @@ static void cpu_ctx_sched_out(struct perf_cpu_context *cpuctx,
 	ctx_sched_out(&cpuctx->ctx, cpuctx, event_type);
 }
 
+//sched in ctx的pinned的group
 static void
 ctx_pinned_sched_in(struct perf_event_context *ctx,
 		    struct perf_cpu_context *cpuctx)
 {
 	struct perf_event *event;
-
+//pin的event都会加到pinned_groups中
 	list_for_each_entry(event, &ctx->pinned_groups, group_entry) {
 		if (event->state <= PERF_EVENT_STATE_OFF)
 			continue;
@@ -2995,6 +3015,7 @@ ctx_flexible_sched_in(struct perf_event_context *ctx,
 	}
 }
 
+//sched in ctx
 static void
 ctx_sched_in(struct perf_event_context *ctx,
 	     struct perf_cpu_context *cpuctx,
@@ -3005,7 +3026,7 @@ ctx_sched_in(struct perf_event_context *ctx,
 	u64 now;
 
 	lockdep_assert_held(&ctx->lock);
-
+//如果没有event，就不需要做什么了
 	if (likely(!ctx->nr_events))
 		return;
 
@@ -3016,7 +3037,7 @@ ctx_sched_in(struct perf_event_context *ctx,
 		else
 			WARN_ON_ONCE(cpuctx->task_ctx != ctx);
 	}
-
+//将之前已经active的event去掉
 	is_active ^= ctx->is_active; /* changed bits */
 
 	if (is_active & EVENT_TIME) {
@@ -3030,6 +3051,7 @@ ctx_sched_in(struct perf_event_context *ctx,
 	 * First go through the list and put on any pinned groups
 	 * in order to give them the best chance of going on.
 	 */
+//sched具体类型的event	 
 	if (is_active & EVENT_PINNED)
 		ctx_pinned_sched_in(ctx, cpuctx);
 
@@ -3053,6 +3075,7 @@ static void perf_event_context_sched_in(struct perf_event_context *ctx,
 	struct perf_cpu_context *cpuctx;
 
 	cpuctx = __get_cpu_context(ctx);
+//这一点要看一下，为何
 	if (cpuctx->task_ctx == ctx)
 		return;
 
@@ -3080,6 +3103,7 @@ static void perf_event_context_sched_in(struct perf_event_context *ctx,
  * accessing the event control register. If a NMI hits, then it will
  * keep the event running.
  */
+//schedule时调用，切换event
 void __perf_event_task_sched_in(struct task_struct *prev,
 				struct task_struct *task)
 {
@@ -3095,7 +3119,7 @@ void __perf_event_task_sched_in(struct task_struct *prev,
 	 */
 	if (atomic_read(this_cpu_ptr(&perf_cgroup_events)))
 		perf_cgroup_sched_in(prev, task);
-
+//对sw和hw的context调用perf_event_context_sched_in
 	for_each_task_context_nr(ctxn) {
 		ctx = task->perf_event_ctxp[ctxn];
 		if (likely(!ctx))
@@ -3613,6 +3637,8 @@ alloc_perf_context(struct pmu *pmu, struct task_struct *task)
 		ctx->task = task;
 		get_task_struct(task);
 	}
+//ctx和pmu到底是什么关系?
+//通过此pmu可以找到初始化时的perf_cpu_context，这个在系统中一共有两个
 	ctx->pmu = pmu;
 
 	return ctx;
@@ -3641,6 +3667,9 @@ find_lively_task_by_vpid(pid_t vpid)
 /*
  * Returns a matching context with refcount and pincount.
  */
+ //查找event的context，如果是task为NULL,则返回pmu->pmu_cpu_context.ctx，这个相当于是
+ //全局的，整个系统只有两个，如果task不为NULL,则返回task->perf_event_ctxp(每个线程有
+ //两个，可能需要创建)
 static struct perf_event_context *
 find_get_context(struct pmu *pmu, struct task_struct *task,
 		struct perf_event *event)
@@ -3651,7 +3680,8 @@ find_get_context(struct pmu *pmu, struct task_struct *task,
 	unsigned long flags;
 	int ctxn, err;
 	int cpu = event->cpu;
-
+//如果跟task无关的event，则返回pmu->pmu_cpu_context.ctx，这个在系统中
+//只有两个，一个sw，一个hw
 	if (!task) {
 		/* Must be root to operate on a CPU event: */
 		if (perf_paranoid_cpu() && !capable(CAP_SYS_ADMIN))
@@ -3687,11 +3717,12 @@ find_get_context(struct pmu *pmu, struct task_struct *task,
 	}
 
 retry:
+//每个线程有两个context，存放于task->perf_event_ctxp
 	ctx = perf_lock_task_context(task, ctxn, &flags);
 	if (ctx) {
 		clone_ctx = unclone_ctx(ctx);
 		++ctx->pin_count;
-
+//ctx是多个pmu的event共享的，为何此处只能赋值一次?
 		if (task_ctx_data && !ctx->task_ctx_data) {
 			ctx->task_ctx_data = task_ctx_data;
 			task_ctx_data = NULL;
@@ -3701,11 +3732,13 @@ retry:
 		if (clone_ctx)
 			put_ctx(clone_ctx);
 	} else {
+//如果当前线程的task->perf_event_ctxp[ctxn]还不存在，就分配一个,创建第一个event时
+//new perf context.
 		ctx = alloc_perf_context(pmu, task);
 		err = -ENOMEM;
 		if (!ctx)
 			goto errout;
-
+//ctx是多个pmu的event共享的，为何此处只能赋值一次?
 		if (task_ctx_data) {
 			ctx->task_ctx_data = task_ctx_data;
 			task_ctx_data = NULL;
@@ -6993,7 +7026,7 @@ static void perf_log_itrace_start(struct perf_event *event)
 /*
  * Generic event overflow handling, sampling.
  */
-
+//调用用户设置的回调函数
 static int __perf_event_overflow(struct perf_event *event,
 				   int throttle, struct perf_sample_data *data,
 				   struct pt_regs *regs)
@@ -7111,6 +7144,7 @@ again:
 	return nr;
 }
 
+//调用用户设置的回调函数
 static void perf_swevent_overflow(struct perf_event *event, u64 overflow,
 				    struct perf_sample_data *data,
 				    struct pt_regs *regs)
@@ -7137,6 +7171,7 @@ static void perf_swevent_overflow(struct perf_event *event, u64 overflow,
 	}
 }
 
+//调用用户设置的回调函数
 static void perf_swevent_event(struct perf_event *event, u64 nr,
 			       struct perf_sample_data *data,
 			       struct pt_regs *regs)
@@ -7156,7 +7191,7 @@ static void perf_swevent_event(struct perf_event *event, u64 nr,
 		return perf_swevent_overflow(event, 1, data, regs);
 	} else
 		data->period = event->hw.last_period;
-
+//调用用户设置的回调函数
 	if (nr == 1 && hwc->sample_period == 1 && !event->attr.freq)
 		return perf_swevent_overflow(event, 1, data, regs);
 
@@ -8454,7 +8489,9 @@ static struct perf_cpu_context __percpu *find_pmu_context(int ctxn)
 
 	if (ctxn < 0)
 		return NULL;
-
+//查找和当前pmu使用同一个context的pmu，并返回context，目前系统中总共有两个context供
+//所有的pmu共享，一个是hw，一个是sf
+//这里设计是不是不好啊，这种判断怎么看都不爽
 	list_for_each_entry(pmu, &pmus, entry) {
 		if (pmu->task_ctx_nr == ctxn)
 			return pmu->pmu_cpu_context;
@@ -8589,7 +8626,7 @@ static void pmu_dev_release(struct device *dev)
 {
 	kfree(dev);
 }
-
+//为当前pmu添加一个设备，并添加到/sys/bus/event_source/devices/下
 static int pmu_dev_alloc(struct pmu *pmu)
 {
 	int ret = -ENOMEM;
@@ -8632,6 +8669,7 @@ free_dev:
 static struct lock_class_key cpuctx_mutex;
 static struct lock_class_key cpuctx_lock;
 
+//注册一个pmu设备到perf
 int perf_pmu_register(struct pmu *pmu, const char *name, int type)
 {
 	int cpu, ret;
@@ -8677,12 +8715,13 @@ skip_type:
 
 		hw_context_taken = 1;
 	}
-
+//查找合适的context
 	pmu->pmu_cpu_context = find_pmu_context(pmu->task_ctx_nr);
 	if (pmu->pmu_cpu_context)
 		goto got_cpu_context;
 
 	ret = -ENOMEM;
+//如果没有就分配一个
 	pmu->pmu_cpu_context = alloc_percpu(struct perf_cpu_context);
 	if (!pmu->pmu_cpu_context)
 		goto free_dev;
@@ -8694,6 +8733,8 @@ skip_type:
 		__perf_event_init_context(&cpuctx->ctx);
 		lockdep_set_class(&cpuctx->ctx.mutex, &cpuctx_mutex);
 		lockdep_set_class(&cpuctx->ctx.lock, &cpuctx_lock);
+//这个赋值怎么解释，多个pmu共享此context， 为何第一个分配此context的pmu会被赋值，
+//而后面的没有，
 		cpuctx->ctx.pmu = pmu;
 
 		__perf_mux_hrtimer_init(cpuctx, cpu);
@@ -8726,7 +8767,7 @@ got_cpu_context:
 
 	if (!pmu->event_idx)
 		pmu->event_idx = perf_event_idx_default;
-
+//将pmu添加到pmus中
 	list_add_rcu(&pmu->entry, &pmus);
 	atomic_set(&pmu->exclusive_cnt, 0);
 	ret = 0;
@@ -8772,7 +8813,7 @@ void perf_pmu_unregister(struct pmu *pmu)
 	free_pmu_context(pmu);
 }
 EXPORT_SYMBOL_GPL(perf_pmu_unregister);
-
+//初始化event，会调用pmu->event_init
 static int perf_try_init_event(struct pmu *pmu, struct perf_event *event)
 {
 	struct perf_event_context *ctx = NULL;
@@ -8803,6 +8844,7 @@ static int perf_try_init_event(struct pmu *pmu, struct perf_event *event)
 	return ret;
 }
 
+//查找event对应的pmu，初始化event
 static struct pmu *perf_init_event(struct perf_event *event)
 {
 	struct pmu *pmu = NULL;
@@ -8814,13 +8856,14 @@ static struct pmu *perf_init_event(struct perf_event *event)
 	rcu_read_lock();
 	pmu = idr_find(&pmu_idr, event->attr.type);
 	rcu_read_unlock();
+//如果能找到对应的pmu，则直接调用其init
 	if (pmu) {
 		ret = perf_try_init_event(pmu, event);
 		if (ret)
 			pmu = ERR_PTR(ret);
 		goto unlock;
 	}
-
+//如果找不到，则遍历所有pmu，尝试是否有ok的
 	list_for_each_entry_rcu(pmu, &pmus, entry) {
 		ret = perf_try_init_event(pmu, event);
 		if (!ret)
@@ -8947,6 +8990,7 @@ enabled:
 /*
  * Allocate and initialize a event structure
  */
+ //申请一个perf_event，并根据类型初始化，然后将申请的参数放入event中
 static struct perf_event *
 perf_event_alloc(struct perf_event_attr *attr, int cpu,
 		 struct task_struct *task,
@@ -8959,7 +9003,8 @@ perf_event_alloc(struct perf_event_attr *attr, int cpu,
 	struct perf_event *event;
 	struct hw_perf_event *hwc;
 	long err = -EINVAL;
-
+//从这里的判断看，event只有两种，一种是task相关的，一种是cpu相关的,
+//难道没有全局的event(和所有的cpu都相关)?
 	if ((unsigned)cpu >= nr_cpu_ids) {
 		if (!task || cpu != -1)
 			return ERR_PTR(-EINVAL);
@@ -8973,6 +9018,7 @@ perf_event_alloc(struct perf_event_attr *attr, int cpu,
 	 * Single events are their own group leaders, with an
 	 * empty sibling list:
 	 */
+//没有设置group leader的event，group leader就是其本身	 
 	if (!group_leader)
 		group_leader = event;
 
@@ -9064,7 +9110,7 @@ perf_event_alloc(struct perf_event_attr *attr, int cpu,
 		if (err)
 			goto err_ns;
 	}
-
+//查找event对应的pmu，初始化event
 	pmu = perf_init_event(event);
 	if (!pmu)
 		goto err_ns;
@@ -9774,6 +9820,7 @@ err_fd:
  * @cpu: cpu in which the counter is bound
  * @task: task to profile (NULL for percpu)
  */
+//创建一个perf_event
 struct perf_event *
 perf_event_create_kernel_counter(struct perf_event_attr *attr, int cpu,
 				 struct task_struct *task,
@@ -9787,7 +9834,7 @@ perf_event_create_kernel_counter(struct perf_event_attr *attr, int cpu,
 	/*
 	 * Get the target context (task or percpu):
 	 */
-
+ //申请一个perf_event，并根据类型初始化，然后将申请的参数放入event中
 	event = perf_event_alloc(attr, cpu, task, NULL, NULL,
 				 overflow_handler, context, -1);
 	if (IS_ERR(event)) {
@@ -9815,7 +9862,7 @@ perf_event_create_kernel_counter(struct perf_event_attr *attr, int cpu,
 		err = -EBUSY;
 		goto err_unlock;
 	}
-
+//将event安装到context上
 	perf_install_in_context(ctx, event, cpu);
 	perf_unpin_context(ctx);
 	mutex_unlock(&ctx->mutex);
@@ -10571,7 +10618,7 @@ ssize_t perf_event_sysfs_show(struct device *dev, struct device_attribute *attr,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(perf_event_sysfs_show);
-
+//注册pmu bus
 static int __init perf_event_sysfs_init(void)
 {
 	struct pmu *pmu;

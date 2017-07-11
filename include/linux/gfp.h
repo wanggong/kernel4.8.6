@@ -393,7 +393,8 @@ static inline bool gfpflags_allow_blocking(const gfp_t gfp_flags)
 	| 1 << (___GFP_MOVABLE | ___GFP_DMA32 | ___GFP_HIGHMEM)		      \
 	| 1 << (___GFP_MOVABLE | ___GFP_DMA32 | ___GFP_DMA | ___GFP_HIGHMEM)  \
 )
-
+//真是看不懂啊
+#if 0
 static inline enum zone_type gfp_zone(gfp_t flags)
 {
 	enum zone_type z;
@@ -404,6 +405,23 @@ static inline enum zone_type gfp_zone(gfp_t flags)
 	VM_BUG_ON((GFP_ZONE_BAD >> bit) & 1);
 	return z;
 }
+
+#else
+static inline  enum zone_type gfp_zone(gfp_t flags)
+{
+ enum zone_type z;
+ int bit = ( int) (flags & ((( gfp_t)0x01u)|(( gfp_t)0x02u)|(( gfp_t)0x04u)|(( gfp_t)0x08u)));
+
+ z = (( (ZONE_NORMAL << 0 * 2) | (ZONE_DMA << 0x01u * 2) 
+    | (ZONE_NORMAL << 0x02u * 2) | (ZONE_DMA32 << 0x04u * 2) 
+    | (ZONE_NORMAL << 0x08u * 2) | (ZONE_DMA << (0x08u | 0x01u) * 2) 
+    | (ZONE_MOVABLE << (0x08u | 0x02u) * 2) 
+    | (ZONE_DMA32 << (0x08u | 0x04u) * 2)) >> (bit * 2)) &
+      ((1 << 2) - 1);
+ ((void)(sizeof(( long)((( 1 << (0x01u | 0x02u) | 1 << (0x01u | 0x04u) | 1 << (0x04u | 0x02u) | 1 << (0x01u | 0x04u | 0x02u) | 1 << (0x08u | 0x02u | 0x01u) | 1 << (0x08u | 0x04u | 0x01u) | 1 << (0x08u | 0x04u | 0x02u) | 1 << (0x08u | 0x04u | 0x01u | 0x02u) ) >> bit) & 1))));
+ return z;
+}
+#endif
 
 /*
  * There is only one page-allocator function, and two main namespaces to

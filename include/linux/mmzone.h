@@ -695,6 +695,16 @@ extern struct page *mem_map;
 struct bootmem_data;
 typedef struct pglist_data {
 	struct zone node_zones[MAX_NR_ZONES];
+/*******************************************************************************
+//node_zonelists是按照zone_idx的顺序从大到小排列的，第一个是zone_idx做大的zone    
+//见build_zonelists_node   
+//所以在node_zones中的排序是
+内存分配是这样查找的:
+首先通过函数gfp_zone(gfp_mask)，根据gfp_mask找到对应zone_type，根据内存的申请规则，
+zone type小于等于zone_type的zone都能满足要求，因为node_zonelists是从大到小排列的，
+所以在某个之后的都可以。(注:在numa中，node_zonelists中包含多个node的zone，各个node的
+zone在一块，按从大到小排列。
+**********************************************************************************/
 	struct zonelist node_zonelists[MAX_ZONELISTS];
 	int nr_zones;
 #ifdef CONFIG_FLAT_NODE_MEM_MAP	/* means !SPARSEMEM */
@@ -1060,6 +1070,7 @@ struct zoneref *__next_zones_zonelist(struct zoneref *z,
  * being examined. It should be advanced by one before calling
  * next_zones_zonelist again.
  */
+//z是一个数组，从当前z开始查找，返回第一个id<=highest_zoneidx的zone
 static __always_inline struct zoneref *next_zones_zonelist(struct zoneref *z,
 					enum zone_type highest_zoneidx,
 					nodemask_t *nodes)
@@ -1081,6 +1092,7 @@ static __always_inline struct zoneref *next_zones_zonelist(struct zoneref *z,
  * used to iterate the zonelist with next_zones_zonelist by advancing it by
  * one before calling.
  */
+ //zonelist->_zonerefs是一个数组，返回第一个id<=highest_zoneidx的zone
 static inline struct zoneref *first_zones_zonelist(struct zonelist *zonelist,
 					enum zone_type highest_zoneidx,
 					nodemask_t *nodes)
@@ -1122,6 +1134,7 @@ static inline struct zoneref *first_zones_zonelist(struct zonelist *zonelist,
  *
  * This iterator iterates though all zones at or below a given zone index.
  */
+ //遍历所有zlist中的zone(id<=highid的)
 #define for_each_zone_zonelist(zone, z, zlist, highidx) \
 	for_each_zone_zonelist_nodemask(zone, z, zlist, highidx, NULL)
 
