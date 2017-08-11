@@ -1669,6 +1669,7 @@ vmacache_seqnum:当mm删除了vma时，那么这里cache的vma就需要失效，这个字段
 /* signal handlers */
 	struct signal_struct *signal;
 	struct sighand_struct *sighand;
+	
 //当signal正在处理时，会添加到block中
 	sigset_t blocked, real_blocked;
 	sigset_t saved_sigmask;	/* restored if set_restore_sigmask() was used */
