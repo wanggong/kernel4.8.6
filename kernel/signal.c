@@ -657,6 +657,7 @@ void signal_wake_up_state(struct task_struct *t, unsigned int state)
  *
  * All callers must be holding the siglock.
  */
+//将mask包含的signal全部清除掉 
 static int flush_sigqueue_mask(sigset_t *mask, struct sigpending *s)
 {
 	struct sigqueue *q, *n;
@@ -2486,7 +2487,7 @@ void set_current_blocked(sigset_t *newset)
 	sigdelsetmask(newset, sigmask(SIGKILL) | sigmask(SIGSTOP));
 	__set_current_blocked(newset);
 }
-
+//设置当前的blocked字段
 void __set_current_blocked(const sigset_t *newset)
 {
 	struct task_struct *tsk = current;
@@ -2504,6 +2505,7 @@ void __set_current_blocked(const sigset_t *newset)
  * interface happily blocks "unblockable" signals like SIGKILL
  * and friends.
  */
+//设置task->blocked字段 
 int sigprocmask(int how, sigset_t *set, sigset_t *oldset)
 {
 	struct task_struct *tsk = current;
@@ -2607,6 +2609,7 @@ COMPAT_SYSCALL_DEFINE4(rt_sigprocmask, int, how, compat_sigset_t __user *, nset,
 }
 #endif
 
+//返回在pending状态的并且被block的signal
 static int do_sigpending(void *set, unsigned long sigsetsize)
 {
 	if (sigsetsize > sizeof(sigset_t))
@@ -3050,6 +3053,7 @@ void kernel_sigaction(int sig, __sighandler_t action)
 }
 EXPORT_SYMBOL(kernel_sigaction);
 
+//安装信号处理程序，实际很简单，只是设置p->sighand->action即可
 int do_sigaction(int sig, struct k_sigaction *act, struct k_sigaction *oact)
 {
 	struct task_struct *p = current, *t;
@@ -3058,7 +3062,8 @@ int do_sigaction(int sig, struct k_sigaction *act, struct k_sigaction *oact)
 
 	if (!valid_signal(sig) || sig < 1 || (act && sig_kernel_only(sig)))
 		return -EINVAL;
-
+//处理程序只安装在了当前线程上，如果是同一个进程的其他线程收到了signal消息该怎么处理呢?
+//sighand是进程的所有线程共享的，所以安装到当前线程上，也就同时安装到了进程的其他线程上了。
 	k = &p->sighand->action[sig-1];
 
 	spin_lock_irq(&p->sighand->siglock);
@@ -3066,6 +3071,7 @@ int do_sigaction(int sig, struct k_sigaction *act, struct k_sigaction *oact)
 		*oact = *k;
 
 	if (act) {
+//KILL和STOP是不能被屏蔽的
 		sigdelsetmask(&act->sa.sa_mask,
 			      sigmask(SIGKILL) | sigmask(SIGSTOP));
 		*k = *act;
@@ -3083,8 +3089,10 @@ int do_sigaction(int sig, struct k_sigaction *act, struct k_sigaction *oact)
 		if (sig_handler_ignored(sig_handler(p, sig), sig)) {
 			sigemptyset(&mask);
 			sigaddset(&mask, sig);
+			//清除共享的pending
 			flush_sigqueue_mask(&mask, &p->signal->shared_pending);
 			for_each_thread(p, t)
+				//清除线程自己独立的pending
 				flush_sigqueue_mask(&mask, &t->pending);
 		}
 	}
@@ -3484,12 +3492,14 @@ SYSCALL_DEFINE1(ssetmask, int, newmask)
 /*
  * For backwards compatibility.  Functionality superseded by sigaction.
  */
+//旧的信号量的接口
 SYSCALL_DEFINE2(signal, int, sig, __sighandler_t, handler)
 {
 	struct k_sigaction new_sa, old_sa;
 	int ret;
 
 	new_sa.sa.sa_handler = handler;
+//旧信号机制是一次性的，而且没有mask
 	new_sa.sa.sa_flags = SA_ONESHOT | SA_NOMASK;
 	sigemptyset(&new_sa.sa.sa_mask);
 
@@ -3512,6 +3522,7 @@ SYSCALL_DEFINE0(pause)
 
 #endif
 
+//设置当前进程的signal blocked为set，并将当前线程置为interruptible状态睡眠，然后等待信号
 static int sigsuspend(sigset_t *set)
 {
 	current->saved_sigmask = current->blocked;

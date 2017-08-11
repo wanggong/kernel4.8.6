@@ -24,6 +24,7 @@ struct sigqueue {
 #define SIGQUEUE_PREALLOC	1
 
 struct sigpending {
+//链接sigqueue
 	struct list_head list;
 //所有待处理的signal    
 	sigset_t signal;
@@ -159,7 +160,7 @@ _SIG_SET_OP(signotset, _sig_not)
 
 #undef _SIG_SET_OP
 #undef _sig_not
-
+;//wgz add
 static inline void sigemptyset(sigset_t *set)
 {
 	switch (_NSIG_WORDS) {
@@ -267,6 +268,7 @@ struct sigaction {
 #ifdef __ARCH_HAS_SA_RESTORER
 	__sigrestore_t sa_restorer;
 #endif
+//在执行此信号处理程序时要屏蔽的信号，和task->blocked不同，blocked是一直都要屏蔽的。
 	sigset_t	sa_mask;	/* mask last for extensibility */
 };
 

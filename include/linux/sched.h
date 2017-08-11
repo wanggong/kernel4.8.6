@@ -528,7 +528,9 @@ static inline int get_dumpable(struct mm_struct *mm)
 #define MMF_INIT_MASK		(MMF_DUMPABLE_MASK | MMF_DUMP_FILTER_MASK)
 
 struct sighand_struct {
+//多个线程是可以共享处理程序的，这个计数用于表示有多少个线程共享此处理程序
 	atomic_t		count;
+//对应信号的处理程序	
 	struct k_sigaction	action[_NSIG];
 	spinlock_t		siglock;
 	wait_queue_head_t	signalfd_wqh;
@@ -670,6 +672,7 @@ struct autogroup;
 struct signal_struct {
 	atomic_t		sigcnt;
 	atomic_t		live;
+//共享此结构的thread的个数
 	int			nr_threads;
 	atomic_t oom_victims; /* # of TIF_MEDIE threads in this thread group */
 	struct list_head	thread_head;
@@ -1540,6 +1543,7 @@ vmacache_seqnum:当mm删除了vma时，那么这里cache的vma就需要失效，这个字段
 #endif
 /* task state */
 	int exit_state;
+//如果创建的是线程exit_signal=-1，将copy_process
 	int exit_code, exit_signal;
 	int pdeath_signal;  /*  The signal sent when the parent dies  */
 	unsigned long jobctl;	/* JOBCTL_*, siglock protected */
@@ -1575,6 +1579,11 @@ vmacache_seqnum:当mm删除了vma时，那么这里cache的vma就需要失效，这个字段
 	struct restart_block restart_block;
 
 	pid_t pid;
+//在linux 2.6中, 内核有了线程组的概念, task_struct结构中增加了一个tgid(thread group id)字段. 
+//如果这个task是一个"主线程", 则它的tgid等于pid, 否则tgid等于进程的pid(即主线程的pid),此外，
+//每个线程有自己的pid。在clone系统调用中, 传递CLONE_THREAD参数就可以把新进程的tgid设置为父
+//进程的tgid(否则新进程的tgid会设为其自身的pid).
+//getpid()系统调用返回的是这个字段
 	pid_t tgid;
 
 #ifdef CONFIG_CC_STACKPROTECTOR
@@ -1593,6 +1602,8 @@ vmacache_seqnum:当mm删除了vma时，那么这里cache的vma就需要失效，这个字段
 	 */
 	struct list_head children;	/* list of my children */
 	struct list_head sibling;	/* linkage in my parent's children list */
+	
+//一个进程的所有thread指向同一个group_leader，见copy_process
 	struct task_struct *group_leader;	/* threadgroup leader */
 
 	/*
@@ -1605,7 +1616,10 @@ vmacache_seqnum:当mm删除了vma时，那么这里cache的vma就需要失效，这个字段
 
 	/* PID/PID hash table linkage. */
 	struct pid_link pids[PIDTYPE_MAX];
+//链接同一个进程的所有的thread
 	struct list_head thread_group;
+
+//挂接到signal->thread_head上
 	struct list_head thread_node;
 
 	struct completion *vfork_done;		/* for vfork() */
@@ -1667,9 +1681,13 @@ vmacache_seqnum:当mm删除了vma时，那么这里cache的vma就需要失效，这个字段
 /* namespaces */
 	struct nsproxy *nsproxy;
 /* signal handlers */
+//信号的设置都在这个变量里边，这个变量是进程共享的，进程的多个线程共享第一个线程创建的signal
+//见copy_signal函数
 	struct signal_struct *signal;
+//信号的设置都在这个变量里边，这个变量是进程共享的，进程的多个线程共享第一个线程创建的
+//sighand，见copy_sighand。
 	struct sighand_struct *sighand;
-//当signal正在处理时，会添加到block中
+//blocked表示当前线程要block的signal
 	sigset_t blocked, real_blocked;
 	sigset_t saved_sigmask;	/* restored if set_restore_sigmask() was used */
 //待处理的signal    
@@ -2959,6 +2977,9 @@ extern bool current_is_single_threaded(void);
 #define __for_each_thread(signal, t)	\
 	list_for_each_entry_rcu(t, &(signal)->thread_head, thread_node)
 
+//为什么使用signal来遍历thread啊？
+//从线程的创建看，同一个进程的所有线程共享同一个p->signal，而每次创建线程时都会
+//将其添加到signal的list中，所以这里可以通过此遍历，但是没有更好的办法吗？
 #define for_each_thread(p, t)		\
 	__for_each_thread((p)->signal, t)
 

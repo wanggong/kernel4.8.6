@@ -2784,6 +2784,7 @@ video_usercopy(struct file *file, unsigned int cmd, unsigned long arg,
 		}
 
 		err = -EFAULT;
+		//如果是写，则先要将写的内容copy到kernel
 		if (_IOC_DIR(cmd) & _IOC_WRITE) {
 			unsigned int n = _IOC_SIZE(cmd);
 
@@ -2799,7 +2800,7 @@ video_usercopy(struct file *file, unsigned int cmd, unsigned long arg,
 				if (flags & INFO_FL_CLEAR_MASK)
 					n = (flags & INFO_FL_CLEAR_MASK) >> 16;
 			}
-
+			//将写的内容拷贝进来。
 			if (copy_from_user(parg, (void __user *)arg, n))
 				goto out;
 

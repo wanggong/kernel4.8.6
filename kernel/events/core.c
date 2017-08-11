@@ -6058,6 +6058,8 @@ perf_event_read_event(struct perf_event *event,
 
 typedef void (perf_iterate_f)(struct perf_event *event, void *data);
 
+
+//使用output函数遍历ctx中的event
 static void
 perf_iterate_ctx(struct perf_event_context *ctx,
 		   perf_iterate_f output,
@@ -6105,6 +6107,7 @@ static void perf_iterate_sb_cpu(perf_iterate_f output, void *data)
  * For new callers; ensure that account_pmu_sb_event() includes
  * your event, otherwise it might not get delivered.
  */
+ //使用output函数遍历current->perf_event_ctxp的event
 static void
 perf_iterate_sb(perf_iterate_f output, void *data,
 	       struct perf_event_context *task_ctx)
@@ -9419,6 +9422,8 @@ static int perf_event_set_clock(struct perf_event *event, clockid_t clk_id)
  * @cpu:		target cpu
  * @group_fd:		group leader event fd
  */
+
+//详见tools/perf/design.txt
 SYSCALL_DEFINE5(perf_event_open,
 		struct perf_event_attr __user *, attr_uptr,
 		pid_t, pid, int, cpu, int, group_fd, unsigned long, flags)

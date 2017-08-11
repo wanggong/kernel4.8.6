@@ -742,6 +742,7 @@ static void armv8pmu_disable_event(struct perf_event *event)
 	raw_spin_unlock_irqrestore(&events->pmu_lock, flags);
 }
 
+//当pmu有中断时，此函数会被调用，这里会调用event的overflow函数
 static irqreturn_t armv8pmu_handle_irq(int irq_num, void *dev)
 {
 	u32 pmovsr;
@@ -787,7 +788,7 @@ static irqreturn_t armv8pmu_handle_irq(int irq_num, void *dev)
 		perf_sample_data_init(&data, 0, hwc->last_period);
 		if (!armpmu_event_set_period(event))
 			continue;
-
+//调用用户设置的overflow函数
 		if (perf_event_overflow(event, &data, regs))
 			cpu_pmu->disable(event);
 	}
@@ -799,6 +800,7 @@ static irqreturn_t armv8pmu_handle_irq(int irq_num, void *dev)
 	 * platforms that can have the PMU interrupts raised as an NMI, this
 	 * will not work.
 	 */
+//调用irq_work_run
 	irq_work_run();
 
 	return IRQ_HANDLED;
