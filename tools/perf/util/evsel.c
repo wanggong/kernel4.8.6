@@ -255,6 +255,7 @@ struct perf_evsel *perf_evsel__new_idx(struct perf_event_attr *attr, int idx)
 
 struct perf_evsel *perf_evsel__new_cycles(void)
 {
+//此处注册一个cycles的pmuevent
 	struct perf_event_attr attr = {
 		.type	= PERF_TYPE_HARDWARE,
 		.config	= PERF_COUNT_HW_CPU_CYCLES,
@@ -262,7 +263,9 @@ struct perf_evsel *perf_evsel__new_cycles(void)
 	struct perf_evsel *evsel;
 
 	event_attr_init(&attr);
-
+//注册event
+//调用perf_event_open注册cycles的events，kernel中对应为core.c的perf_event_open函数，
+//
 	perf_event_attr__set_max_precise_ip(&attr);
 
 	evsel = perf_evsel__new(&attr);

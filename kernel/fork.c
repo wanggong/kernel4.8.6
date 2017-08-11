@@ -1124,10 +1124,12 @@ static int copy_io(unsigned long clone_flags, struct task_struct *tsk)
 	return 0;
 }
 
+//对于进程的创建，将父进程的信号处理部分的数据结构拷贝过来，这样子进程就有和父进程一样的处理方式了
+//对于创建线程，则父进程与子进程使用同一个sighand_struct，并不需要拷贝。
 static int copy_sighand(unsigned long clone_flags, struct task_struct *tsk)
 {
 	struct sighand_struct *sig;
-
+//创建线程时使用
 	if (clone_flags & CLONE_SIGHAND) {
 		atomic_inc(&current->sighand->count);
 		return 0;
@@ -1138,6 +1140,7 @@ static int copy_sighand(unsigned long clone_flags, struct task_struct *tsk)
 		return -ENOMEM;
 
 	atomic_set(&sig->count, 1);
+//拷贝父进程的处理方式
 	memcpy(sig->action, current->sighand->action, sizeof(sig->action));
 	return 0;
 }
@@ -1190,6 +1193,7 @@ static int copy_signal(unsigned long clone_flags, struct task_struct *tsk)
 	atomic_set(&sig->sigcnt, 1);
 
 	/* list_add(thread_node, thread_head) without INIT_LIST_HEAD() */
+//为什么这么写，没看明白
 	sig->thread_head = (struct list_head)LIST_HEAD_INIT(tsk->thread_node);
 	tsk->thread_node = (struct list_head)LIST_HEAD_INIT(sig->thread_head);
 
@@ -1583,6 +1587,7 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 	/* ok, now we should be set up.. */
 	p->pid = pid_nr(pid);
 	if (clone_flags & CLONE_THREAD) {
+//如果创建的是线程
 		p->exit_signal = -1;
 		p->group_leader = current->group_leader;
 		p->tgid = current->tgid;

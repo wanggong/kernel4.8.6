@@ -84,6 +84,8 @@ EXPORT_SYMBOL_GPL(irq_work_queue_on);
 #endif
 
 /* Enqueue the irq work @work on the current CPU */
+//注册一个pmu中断处理过程，当cpu的pmu有中断产生时，此注册的work会被调用，
+//具体见irq_work_run
 bool irq_work_queue(struct irq_work *work)
 {
 	/* Only queue if not already pending */
@@ -166,6 +168,7 @@ static void irq_work_run_list(struct llist_head *list)
  * hotplug calls this through:
  *  hotplug_cfd() -> flush_smp_call_function_queue()
  */
+ //当有pmu的中断时，被armv8pmu_handle_irq调用
 void irq_work_run(void)
 {
 	irq_work_run_list(this_cpu_ptr(&raised_list));
