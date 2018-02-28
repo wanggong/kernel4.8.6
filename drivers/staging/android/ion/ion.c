@@ -493,6 +493,8 @@ static int ion_handle_add(struct ion_client *client, struct ion_handle *handle)
 //分配一个ion_buffer,分配一个ion_handle指向buffer并返回。
 //注意，此时并没有分配dma_buffer,要到share或map时才会分配
 //所以此时是不能共享的。
+//此时只是分配的物理内存，此内存暂时还没有映射到kernel和user，
+//需要调用map_kernel或map_user映射到才能访问。
 struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 			     size_t align, unsigned int heap_id_mask,
 			     unsigned int flags)

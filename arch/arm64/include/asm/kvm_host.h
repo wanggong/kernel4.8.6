@@ -115,6 +115,8 @@ enum vcpu_sysreg {
 	TPIDR_EL1,	/* Thread ID, Privileged */
 	AMAIR_EL1,	/* Aux Memory Attribute Indirection Register */
 	CNTKCTL_EL1,	/* Timer Control Register (EL1) */
+	
+	//使用AT指令将va转化为pa，转换之后的pa存于此寄存器
 	PAR_EL1,	/* Physical Address Register */
 	MDSCR_EL1,	/* Monitor Debug System Control Register */
 	MDCCINT_EL1,	/* Monitor Debug Comms Channel Interrupt Enable Reg */
@@ -161,6 +163,7 @@ enum vcpu_sysreg {
 #define c5_AIFSR	(AFSR1_EL1 * 2)	/* Auxiliary Instr Fault Status R */
 #define c6_DFAR		(FAR_EL1 * 2)	/* Data Fault Address Register */
 #define c6_IFAR		(c6_DFAR + 1)	/* Instruction Fault Address Register */
+//使用AT指令将va转化为pa，转换之后的pa存于此寄存器
 #define c7_PAR		(PAR_EL1 * 2)	/* Physical Address Register */
 #define c7_PAR_high	(c7_PAR + 1)	/* PAR top 32 bits */
 #define c10_PRRR	(MAIR_EL1 * 2)	/* Primary Region Remap Register */

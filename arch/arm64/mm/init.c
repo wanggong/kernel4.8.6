@@ -187,6 +187,7 @@ static int __init early_mem(char *p)
 }
 early_param("mem", early_mem);
 
+//将某些内存添加到reserved的表中
 void __init arm64_memblock_init(void)
 {
 	const s64 linear_region_size = -(s64)PAGE_OFFSET;
@@ -288,7 +289,7 @@ void __init arm64_memblock_init(void)
 		initrd_end = __phys_to_virt(initrd_end);
 	}
 #endif
-
+//将reserved的memory添加到reserved的表中
 	early_init_fdt_scan_reserved_mem();
 
 	/* 4GB maximum for 32-bit only capable devices */
@@ -317,6 +318,7 @@ void __init bootmem_init(void)
 	 * Sparsemem tries to allocate bootmem in memory_present(), so must be
 	 * done after the fixed reservations.
 	 */
+//将已有的memory添加到 mem_section中
 	arm64_memory_present();
 
 	sparse_init();
@@ -418,7 +420,22 @@ void __init mem_init(void)
 #define MLM(b, t) b, t, ((t) - (b)) >> 20
 #define MLG(b, t) b, t, ((t) - (b)) >> 30
 #define MLK_ROUNDUP(b, t) b, t, DIV_ROUND_UP(((t) - (b)), SZ_1K)
+/***
+1881结果如下：
+[    0.000000] <0>I{0}[0:swapper]Virtual kernel memory layout:
+[    0.000000] <0>    modules : 0xffffff8000000000 - 0xffffff8008000000   (   128 MB)
+[    0.000000] <0>    vmalloc : 0xffffff8008000000 - 0xffffffbdffff0000   (   247 GB)
+[    0.000000] <0>      .init : 0xffffff8008e60000 - 0xffffff8009100000   (  2688 KB)
+[    0.000000] <0>      .text : 0xffffff8008080000 - 0xffffff8008b00000   ( 10752 KB)
+[    0.000000] <0>    .rodata : 0xffffff8008b00000 - 0xffffff8008e60000   (  3456 KB)
+[    0.000000] <0>      .data : 0xffffff8009100000 - 0xffffff8009239400   (  1253 KB)
+[    0.000000] <0>    vmemmap : 0xffffffbe00000000 - 0xffffffbfc0000000   (     7 GB maximum)
+[    0.000000] <0>              0xffffffbe001c0000 - 0xffffffbe02920000   (    39 MB actual)
+[    0.000000] <0>    fixed   : 0xffffffbffe7fd000 - 0xffffffbffec00000   (  4108 KB)
+[    0.000000] <0>    PCI I/O : 0xffffffbffee00000 - 0xffffffbfffe00000   (    16 MB)
+[    0.000000] <0>    memory  : 0xffffffc008000000 - 0xffffffc0bc000000   (  2880 MB)
 
+****/
 	pr_notice("Virtual kernel memory layout:\n");
 #ifdef CONFIG_KASAN
 	pr_cont("    kasan   : 0x%16lx - 0x%16lx   (%6ld GB)\n",

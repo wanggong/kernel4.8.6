@@ -287,6 +287,10 @@ static int count_open_files(struct fdtable *fdt)
  * passed in files structure.
  * errorp will be valid only when the returned files_struct is NULL.
  */
+
+//拷贝当前进程的文件，并返回files_struct
+//这里的拷贝仅仅是重新分配一个fd的接口，struct file 数据结构是不拷贝的，仅仅增加引用计数进而共享。
+//这里可以看到，对于一个进程而言，仅仅fd是私有的，其他的（struct file，inode）都是可以共享的。
 struct files_struct *dup_fd(struct files_struct *oldf, int *errorp)
 {
 	struct files_struct *newf;
@@ -355,6 +359,8 @@ struct files_struct *dup_fd(struct files_struct *oldf, int *errorp)
 
 	for (i = open_files; i != 0; i--) {
 		struct file *f = *old_fds++;
+		//注意这里，file仅仅是增加引用计数，并没有单独拷贝一个出来，所以父子进程共享struct file结构，
+		//这样的结果是，如果父进程更新了文件的位置（例如读或写文件），子进程文件的位置也更新了。
 		if (f) {
 			get_file(f);
 		} else {
@@ -603,7 +609,7 @@ EXPORT_SYMBOL(put_unused_fd);
  * or really bad things will happen.  Normally you want to use
  * fd_install() instead.
  */
-
+//将file安装到fd上
 void __fd_install(struct files_struct *files, unsigned int fd,
 		struct file *file)
 {

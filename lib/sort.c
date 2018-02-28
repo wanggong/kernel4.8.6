@@ -55,7 +55,8 @@ static void generic_swap(void *a, void *b, int size)
  * O(n*n) worst-case behavior and extra memory requirements that make
  * it less suitable for kernel use.
  */
-
+//如上面的说明，kernel使用的是堆排序，快速排序平均情况会快20%左右，但qsort的
+//最差情况是O(n*n),而且需要额外的空间，所以没有选。
 void sort(void *base, size_t num, size_t size,
 	  int (*cmp_func)(const void *, const void *),
 	  void (*swap_func)(void *, void *, int size))

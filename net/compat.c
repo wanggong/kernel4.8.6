@@ -255,6 +255,7 @@ int put_cmsg_compat(struct msghdr *kmsg, int level, int type, int len, void *dat
 	return 0;
 }
 
+//接收安装file
 void scm_detach_fds_compat(struct msghdr *kmsg, struct scm_cookie *scm)
 {
 	struct compat_cmsghdr __user *cm = (struct compat_cmsghdr __user *) kmsg->msg_control;
@@ -283,6 +284,7 @@ void scm_detach_fds_compat(struct msghdr *kmsg, struct scm_cookie *scm)
 			break;
 		}
 		/* Bump the usage count and install the file. */
+		//将file安装到fd上
 		fd_install(new_fd, get_file(fp[i]));
 	}
 

@@ -183,6 +183,7 @@ static int vmap_pud_range(pgd_t *pgd, unsigned long addr,
  *
  * Ie. pte at addr+N*PAGE_SIZE shall point to pfn corresponding to pages[N]
  */
+  //将page映射到 start，start 是属于kernel的地址
 static int vmap_page_range_noflush(unsigned long start, unsigned long end,
 				   pgprot_t prot, struct page **pages)
 {
@@ -204,6 +205,7 @@ static int vmap_page_range_noflush(unsigned long start, unsigned long end,
 	return nr;
 }
 
+//将pages数组中的page map到(start,end)中
 static int vmap_page_range(unsigned long start, unsigned long end,
 			   pgprot_t prot, struct page **pages)
 {
@@ -279,6 +281,9 @@ EXPORT_SYMBOL(vmalloc_to_pfn);
 
 static DEFINE_SPINLOCK(vmap_area_lock);
 /* Export for kexec only */
+
+//vmap也有两个，vmap_area_list是已地址大小从小到大排列的，vmap_area_root是
+//按rbtree的形式组织的。
 LIST_HEAD(vmap_area_list);
 static LLIST_HEAD(vmap_purge_list);
 static struct rb_root vmap_area_root = RB_ROOT;
@@ -291,6 +296,7 @@ static unsigned long cached_align;
 
 static unsigned long vmap_area_pcpu_hole;
 
+//查找包含地址addr的vmap_area
 static struct vmap_area *__find_vmap_area(unsigned long addr)
 {
 	struct rb_node *n = vmap_area_root.rb_node;
@@ -310,6 +316,7 @@ static struct vmap_area *__find_vmap_area(unsigned long addr)
 	return NULL;
 }
 
+//将va插入到红黑树vmap_area_root中，同时插入到链表vmap_area_list中
 static void __insert_vmap_area(struct vmap_area *va)
 {
 	struct rb_node **p = &vmap_area_root.rb_node;
@@ -350,6 +357,7 @@ static BLOCKING_NOTIFIER_HEAD(vmap_notify_list);
  * Allocate a region of KVA of the specified size and alignment, within the
  * vstart and vend.
  */
+//在 vmap_area_list 中查找一段为使用的空间
 static struct vmap_area *alloc_vmap_area(unsigned long size,
 				unsigned long align,
 				unsigned long vstart, unsigned long vend,
@@ -1271,6 +1279,7 @@ void __init vmalloc_init(void)
  * RETURNS:
  * The number of pages mapped on success, -errno on failure.
  */
+ //将page映射到addr，addr是属于kernel的地址
 int map_kernel_range_noflush(unsigned long addr, unsigned long size,
 			     pgprot_t prot, struct page **pages)
 {
@@ -1315,6 +1324,8 @@ void unmap_kernel_range(unsigned long addr, unsigned long size)
 }
 EXPORT_SYMBOL_GPL(unmap_kernel_range);
 
+
+//将pages数组 map 到area中
 int map_vm_area(struct vm_struct *area, pgprot_t prot, struct page **pages)
 {
 	unsigned long addr = (unsigned long)area->addr;
@@ -1327,6 +1338,7 @@ int map_vm_area(struct vm_struct *area, pgprot_t prot, struct page **pages)
 }
 EXPORT_SYMBOL_GPL(map_vm_area);
 
+//设置vm和va数据结构
 static void setup_vmalloc_vm(struct vm_struct *vm, struct vmap_area *va,
 			      unsigned long flags, const void *caller)
 {
@@ -1370,7 +1382,7 @@ static struct vm_struct *__get_vm_area_node(unsigned long size,
 	area = kzalloc_node(sizeof(*area), gfp_mask & GFP_RECLAIM_MASK, node);
 	if (unlikely(!area))
 		return NULL;
-
+//默认情况下，vmalloc之间有一个一页大小的空洞，用于隔离
 	if (!(flags & VM_NO_GUARD))
 		size += PAGE_SIZE;
 
@@ -1570,6 +1582,8 @@ EXPORT_SYMBOL(vunmap);
  *	Maps @count pages from @pages into contiguous kernel virtual
  *	space.
  */
+
+//将pages map到vmalloc的一段地址空间中，并返回
 void *vmap(struct page **pages, unsigned int count,
 		unsigned long flags, pgprot_t prot)
 {
@@ -1598,6 +1612,8 @@ EXPORT_SYMBOL(vmap);
 static void *__vmalloc_node(unsigned long size, unsigned long align,
 			    gfp_t gfp_mask, pgprot_t prot,
 			    int node, const void *caller);
+
+//分配area所需的pages，并将这些pages map到area的地址空间中
 static void *__vmalloc_area_node(struct vm_struct *area, gfp_t gfp_mask,
 				 pgprot_t prot, int node)
 {
@@ -1767,6 +1783,28 @@ void *vmalloc(unsigned long size)
 }
 EXPORT_SYMBOL(vmalloc);
 
+//wgz add
+//对于arm64来说，其地址分为两段，这两段地址在user和kernel都是同时能看见的，只是
+//kernel的地址在映射时设置AP1（PTE_USER)=0，这样在user模式就没有访问权限了，如果
+//在映射时将AP1设置为1，则user模式就有权限访问了，下面的vmalloc_all就是这么做的，
+//通过此函数分配的内存，将地址直接传给user，user是可以直接方位的，已测试通过。
+//2017-12-28
+static inline void *__vmalloc_node_flags_all(unsigned long size,
+					int node, gfp_t flags)
+{
+	return __vmalloc_node(size, 1, flags, PAGE_KERNEL|PTE_USER,
+					node, __builtin_return_address(0));
+}
+
+
+void *vmalloc_all(unsigned long size)
+{
+	return __vmalloc_node_flags_all(size, NUMA_NO_NODE,
+				    GFP_KERNEL | __GFP_HIGHMEM);
+}
+EXPORT_SYMBOL(vmalloc_all);
+
+
 /**
  *	vzalloc - allocate virtually contiguous memory with zero fill
  *	@size:	allocation size
@@ -1791,6 +1829,7 @@ EXPORT_SYMBOL(vzalloc);
  * The resulting memory area is zeroed so it can be mapped to userspace
  * without leaking data.
  */
+//
 void *vmalloc_user(unsigned long size)
 {
 	struct vm_struct *area;
@@ -2218,6 +2257,7 @@ EXPORT_SYMBOL(remap_vmalloc_range_partial);
  *
  *	Similar to remap_pfn_range() (see mm/memory.c)
  */
+//将vmalloc分配的地址映射到user空间。
 int remap_vmalloc_range(struct vm_area_struct *vma, void *addr,
 						unsigned long pgoff)
 {

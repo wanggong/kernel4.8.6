@@ -645,6 +645,7 @@ struct inode {
 		unsigned int __i_nlink;
 	};
 	dev_t			i_rdev;
+	//文件或共享内存的大小
 	loff_t			i_size;
 	struct timespec		i_atime;
 	struct timespec		i_mtime;
@@ -676,9 +677,11 @@ struct inode {
 	u16			i_wb_frn_history;
 #endif
 	struct list_head	i_lru;		/* inode LRU list */
+//链接到super_block->s_inodes
 	struct list_head	i_sb_list;
 	struct list_head	i_wb_list;	/* backing dev writeback list */
 	union {
+		//所有指向此inode的dentry的链表
 		struct hlist_head	i_dentry;
 		struct rcu_head		i_rcu;
 	};
@@ -898,6 +901,7 @@ struct file {
 		struct llist_node	fu_llist;
 		struct rcu_head 	fu_rcuhead;
 	} f_u;
+	//file指向的dentry，即path
 	struct path		f_path;
 	struct inode		*f_inode;	/* cached value */
 	const struct file_operations	*f_op;
@@ -907,6 +911,7 @@ struct file {
 	 * Must not be taken from IRQ context.
 	 */
 	spinlock_t		f_lock;
+	//当多个进程（线程）共享时增加此引用计数
 	atomic_long_t		f_count;
 	unsigned int 		f_flags;
 	fmode_t			f_mode;
@@ -928,6 +933,7 @@ struct file {
 	struct list_head	f_ep_links;
 	struct list_head	f_tfile_llink;
 #endif /* #ifdef CONFIG_EPOLL */
+//指向的是inode->i_mapping
 	struct address_space	*f_mapping;
 } __attribute__((aligned(4)));	/* lest something weird decides that 2 is OK */
 
@@ -1403,6 +1409,7 @@ struct super_block {
 	 * generic_show_options()
 	 */
 	char __rcu *s_options;
+	//dentry的操作函数
 	const struct dentry_operations *s_d_op; /* default d_op for dentries */
 
 	/*
@@ -1447,6 +1454,7 @@ struct super_block {
 
 	/* s_inode_list_lock protects s_inodes */
 	spinlock_t		s_inode_list_lock ____cacheline_aligned_in_smp;
+	//属于本super_block的所有的node，通过inode->i_sb_list链接过来
 	struct list_head	s_inodes;	/* all inodes */
 
 	spinlock_t		s_inode_wblist_lock;

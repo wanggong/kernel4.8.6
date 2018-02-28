@@ -196,6 +196,7 @@ struct binder_transaction_log {
 static struct binder_transaction_log binder_transaction_log;
 static struct binder_transaction_log binder_transaction_log_failed;
 
+//实际是找到一个entry，用于存放新的log
 static struct binder_transaction_log_entry *binder_transaction_log_add(
 	struct binder_transaction_log *log)
 {
@@ -222,7 +223,18 @@ struct binder_work {
 		BINDER_WORK_CLEAR_DEATH_NOTIFICATION,
 	} type;
 };
+/******************************************************************************************************
+//每个service都会对应一个binder，在kernel中就对应一个binder_node,binder_node->ptr就是指向
+//应用的binder的指针，binder_node是全局唯一的。
 
+//binder_ref是binder_node的引用，会将不同的binder_node安装到不同的进程中。
+//例如如下情景
+1. 进程1提供一个service，则此service对应一个binder，在kernel中就对应一个binder_node.
+   同时进程1会将binder_node安装到 binder_proc的refs_by_desc和refs_by_node树中。
+
+2. 进程3需要将进程1的service传递给进程2，则进程3需要将进程1的service的binder_node安装到进程2
+   的binder_proc中，然后将handle传递给进程2，这样进程2就能通过handle找到binder_node了
+***********************************************************************************************************/
 struct binder_node {
 	int debug_id;
 	struct binder_work work;
@@ -235,7 +247,9 @@ struct binder_node {
 	int internal_strong_refs;
 	int local_weak_refs;
 	int local_strong_refs;
+	//ptr，指向binder
 	binder_uintptr_t ptr;
+	//好像也是指向binder，跟ptr一样不知道为何还要这个字段
 	binder_uintptr_t cookie;
 	unsigned has_strong_ref:1;
 	unsigned pending_strong_ref:1;
@@ -252,17 +266,25 @@ struct binder_ref_death {
 	binder_uintptr_t cookie;
 };
 
+//binder_ref是属于某个具体进程的，但是其中的node却可能是其他进程的
 struct binder_ref {
 	/* Lookups needed: */
 	/*   node + proc => ref (transaction) */
 	/*   desc + proc => ref (transaction, inc/dec ref) */
 	/*   node => refs + procs (proc exit) */
 	int debug_id;
+	//链接到 proc->refs_by_desc 树中
 	struct rb_node rb_node_desc;
+	//链接到proc->refs_by_node树中
 	struct rb_node rb_node_node;
+	//一个binder_node可能有多个binder_ref指向它，连接到node->refs
 	struct hlist_node node_entry;
+
+	//指向此node所在的进程proc
 	struct binder_proc *proc;
+	//指向binder_node，注意，可能是其他进程的
 	struct binder_node *node;
+	//链接到 proc->refs_by_desc 时使用的键值。这个是本进程唯一的，但不是全局唯一
 	uint32_t desc;
 	int strong;
 	int weak;
@@ -278,6 +300,7 @@ struct binder_buffer {
 	unsigned async_transaction:1;
 	unsigned debug_id:29;
 
+//此buffer属于哪个transaction
 	struct binder_transaction *transaction;
 
 	struct binder_node *target_node;
@@ -293,9 +316,15 @@ enum binder_deferred_state {
 };
 
 struct binder_proc {
+	//添加到binder_procs链表中。
 	struct hlist_node proc_node;
+	//
 	struct rb_root threads;
+
+	//此proc的所有的nodes
 	struct rb_root nodes;
+	//下面两个是 binder_ref 树
+	//猜测，存的是本进程使用的其他进程的services
 	struct rb_root refs_by_desc;
 	struct rb_root refs_by_node;
 	int pid;
@@ -305,21 +334,37 @@ struct binder_proc {
 	struct files_struct *files;
 	struct hlist_node deferred_work_node;
 	int deferred_work;
+	//kernel的地址
 	void *buffer;
+	//user的地址相对于kernel地址的偏移，=vma->vm_start - (uintptr_t)proc->buffer
 	ptrdiff_t user_buffer_offset;
-
+/***************************************************************************
+buffer的管理是这样的，共分为三个部分
+1. buffers 所有的buffer都连接到这里，不管是已经分配的还是未分配的，而且是按照
+   地址的大小从前往后排列。buffer自身是没有保存大小信息的，要计算一个buffer的大小，
+   需要找到后面的那个buffer，用后面buffer的起始地址减去本buffer的开始地址就是buffer的大小。
+2. free_buffers和allocated_buffers，这两个树分别表示free的buffer和已经分配的buffer，
+   他们是按照buffer的大小排列的。
+3. free_buffers中的buffer只有第一个页面时已经分配好的，其他的页面都没有分配，在
+   分配是要重新分配页面。
+4. allocated_buffers的所有页面都是分配好的，释放时保留第一个页面不释放，将第一个页面后面的页面
+   给释放掉。如果需要还会和其他的free的buffer合并成更大的buffer。
+****************************************************************************/
 	struct list_head buffers;
+//free_buffers的rbtree是按照buffer的大小为键值存放的
 	struct rb_root free_buffers;
 	struct rb_root allocated_buffers;
 	size_t free_async_space;
-
+//此binder使用的page
 	struct page **pages;
+//用户空间的大小
 	size_t buffer_size;
 	uint32_t buffer_free;
 	struct list_head todo;
 	wait_queue_head_t wait;
 	struct binder_stats stats;
 	struct list_head delivered_death;
+//此进程最大的线程数
 	int max_threads;
 	int requested_threads;
 	int requested_threads_started;
@@ -339,11 +384,16 @@ enum {
 
 struct binder_thread {
 	struct binder_proc *proc;
+	//链接到binder_proc
 	struct rb_node rb_node;
+	//这个是线程的id
 	int pid;
 	int looper;
+	//此thread正在进行的transaction
 	struct binder_transaction *transaction_stack;
 	struct list_head todo;
+	//还没有看明白，现在的理解是第一次出错放在 return_error ， 第二次出错的话，将第一次的错误放在
+	//return_error2，然后将最新的一次出错放在 return_error
 	uint32_t return_error; /* Write failed, return error code in read buf */
 	uint32_t return_error2; /* Write failed, return error code in read */
 		/* buffer. Used when sending a reply to a dead process that */
@@ -355,15 +405,19 @@ struct binder_thread {
 struct binder_transaction {
 	int debug_id;
 	struct binder_work work;
+	//此 transaction的 发出方
 	struct binder_thread *from;
 	struct binder_transaction *from_parent;
+	//此transaction的接收方，即service
 	struct binder_proc *to_proc;
+	//
 	struct binder_thread *to_thread;
 	struct binder_transaction *to_parent;
 	unsigned need_reply:1;
 	/* unsigned is_dead:1; */	/* not used at the moment */
 
 	struct binder_buffer *buffer;
+	//要传给service执行的命令，由service自己解析
 	unsigned int	code;
 	unsigned int	flags;
 	long	priority;
@@ -374,6 +428,7 @@ struct binder_transaction {
 static void
 binder_defer_work(struct binder_proc *proc, enum binder_deferred_state defer);
 
+//分配一个fd
 static int task_get_unused_fd_flags(struct binder_proc *proc, int flags)
 {
 	struct files_struct *files = proc->files;
@@ -395,6 +450,8 @@ static int task_get_unused_fd_flags(struct binder_proc *proc, int flags)
 /*
  * copied from fd_install
  */
+
+//将file安装到proc代表的进程的fd
 static void task_fd_install(
 	struct binder_proc *proc, unsigned int fd, struct file *file)
 {
@@ -405,6 +462,7 @@ static void task_fd_install(
 /*
  * copied from sys_close
  */
+ //close proc所代表进程的fd
 static long task_close_fd(struct binder_proc *proc, unsigned int fd)
 {
 	int retval;
@@ -457,12 +515,15 @@ static void binder_set_nice(long nice)
 static size_t binder_buffer_size(struct binder_proc *proc,
 				 struct binder_buffer *buffer)
 {
+//如果是最后一个，则在其后面的空间都是最后一个的
 	if (list_is_last(&buffer->entry, &proc->buffers))
 		return proc->buffer + proc->buffer_size - (void *)buffer->data;
+//如果不是最后一个，则后面一个是紧跟着前一个的	
 	return (size_t)list_entry(buffer->entry.next,
 			  struct binder_buffer, entry) - (size_t)buffer->data;
 }
 
+//将buffer插入到free的rbtree中
 static void binder_insert_free_buffer(struct binder_proc *proc,
 				      struct binder_buffer *new_buffer)
 {
@@ -496,6 +557,7 @@ static void binder_insert_free_buffer(struct binder_proc *proc,
 	rb_insert_color(&new_buffer->rb_node, &proc->free_buffers);
 }
 
+//将allocate的buffer 添加到 proc->allocated_buffers 的树上
 static void binder_insert_allocated_buffer(struct binder_proc *proc,
 					   struct binder_buffer *new_buffer)
 {
@@ -521,6 +583,7 @@ static void binder_insert_allocated_buffer(struct binder_proc *proc,
 	rb_insert_color(&new_buffer->rb_node, &proc->allocated_buffers);
 }
 
+//user_ptr是user的指针，在 proc->allocated_buffers 中查找其对应的buffer
 static struct binder_buffer *binder_buffer_lookup(struct binder_proc *proc,
 						  uintptr_t user_ptr)
 {
@@ -545,6 +608,12 @@ static struct binder_buffer *binder_buffer_lookup(struct binder_proc *proc,
 	return NULL;
 }
 
+//说明：分配page并映射到kernel和user，或者取消映射并释放page
+//start和end表示的是kernel的空间
+//当allocate==1时，表示分配页面并分别映射到(start,end)的kernel的地址空间中，同时
+//也映射到vma的user的空间中。
+//当allocate==0时，表示要释放(start,end)之间的页面，会取消kernel和user的映射，然后
+//将page释放掉。
 static int binder_update_page_range(struct binder_proc *proc, int allocate,
 				    void *start, void *end,
 				    struct vm_area_struct *vma)
@@ -599,6 +668,7 @@ static int binder_update_page_range(struct binder_proc *proc, int allocate,
 				proc->pid, page_addr);
 			goto err_alloc_page_failed;
 		}
+		//将page映射到kernel空间
 		ret = map_kernel_range_noflush((unsigned long)page_addr,
 					PAGE_SIZE, PAGE_KERNEL, page);
 		flush_cache_vmap((unsigned long)page_addr,
@@ -608,6 +678,7 @@ static int binder_update_page_range(struct binder_proc *proc, int allocate,
 			       proc->pid, page_addr);
 			goto err_map_kernel_failed;
 		}
+		//将page 映射到user空间
 		user_page_addr =
 			(uintptr_t)page_addr + proc->user_buffer_offset;
 		ret = vm_insert_page(vma, user_page_addr, page[0]);
@@ -647,6 +718,7 @@ err_no_vma:
 	return -ENOMEM;
 }
 
+//从 proc->free_buffers 中分配一个buffer，可能需要将大buffer切割成小buffer
 static struct binder_buffer *binder_alloc_buf(struct binder_proc *proc,
 					      size_t data_size,
 					      size_t offsets_size, int is_async)
@@ -763,6 +835,7 @@ static void *buffer_end_page(struct binder_buffer *buffer)
 	return (void *)(((uintptr_t)(buffer + 1) - 1) & PAGE_MASK);
 }
 
+//删除掉当前的buffer，和prev的buffer合并到一起
 static void binder_delete_free_buffer(struct binder_proc *proc,
 				      struct binder_buffer *buffer)
 {
@@ -808,6 +881,7 @@ static void binder_delete_free_buffer(struct binder_proc *proc,
 	}
 }
 
+//free掉当前的buffer，如果需要和前面的buffer合并
 static void binder_free_buf(struct binder_proc *proc,
 			    struct binder_buffer *buffer)
 {
@@ -864,6 +938,7 @@ static void binder_free_buf(struct binder_proc *proc,
 	binder_insert_free_buffer(proc, buffer);
 }
 
+//在proc->nodes中查找ptr对应的 binder_node
 static struct binder_node *binder_get_node(struct binder_proc *proc,
 					   binder_uintptr_t ptr)
 {
@@ -883,6 +958,8 @@ static struct binder_node *binder_get_node(struct binder_proc *proc,
 	return NULL;
 }
 
+//创建一个新node，并链接到proc->nodes
+//猜测，每个node代表一个service
 static struct binder_node *binder_new_node(struct binder_proc *proc,
 					   binder_uintptr_t ptr,
 					   binder_uintptr_t cookie)
@@ -1002,6 +1079,7 @@ static int binder_dec_node(struct binder_node *node, int strong, int internal)
 }
 
 
+//从 proc->refs_by_desc 树中根据desc获取ref
 static struct binder_ref *binder_get_ref(struct binder_proc *proc,
 					 uint32_t desc)
 {
@@ -1021,6 +1099,8 @@ static struct binder_ref *binder_get_ref(struct binder_proc *proc,
 	return NULL;
 }
 
+//从proc->refs_by_node中查找指向node的ref，如果找不到，就分配一个binder_ref，同时将其添加到
+//proc->refs_by_node 和 proc->refs_by_desc 这两颗树中。
 static struct binder_ref *binder_get_ref_for_node(struct binder_proc *proc,
 						  struct binder_node *node)
 {
@@ -1167,9 +1247,11 @@ static int binder_dec_ref(struct binder_ref *ref, int strong)
 	return 0;
 }
 
+//释放掉t
 static void binder_pop_transaction(struct binder_thread *target_thread,
 				   struct binder_transaction *t)
 {
+//真没看懂
 	if (target_thread) {
 		BUG_ON(target_thread->transaction_stack != t);
 		BUG_ON(target_thread->transaction_stack->from != target_thread);
@@ -1542,11 +1624,12 @@ static void binder_transaction(struct binder_proc *proc,
 		fp = (struct flat_binder_object *)(t->buffer->data + *offp);
 		off_min = *offp + sizeof(struct flat_binder_object);
 		switch (fp->type) {
+		//表示传递的是本地的binder，这里将其转换成handle，
 		case BINDER_TYPE_BINDER:
 		case BINDER_TYPE_WEAK_BINDER: {
 			struct binder_ref *ref;
 			struct binder_node *node = binder_get_node(proc, fp->binder);
-
+			//如果此binder尚未建立对应 的node，则建立一个，这里可以看出，每个binder对应一个node
 			if (node == NULL) {
 				node = binder_new_node(proc, fp->binder, fp->cookie);
 				if (node == NULL) {
@@ -1569,6 +1652,7 @@ static void binder_transaction(struct binder_proc *proc,
 				return_error = BR_FAILED_REPLY;
 				goto err_binder_get_ref_for_node_failed;
 			}
+			//将node安装到target的进程中
 			ref = binder_get_ref_for_node(target_proc, node);
 			if (ref == NULL) {
 				return_error = BR_FAILED_REPLY;
@@ -1590,6 +1674,7 @@ static void binder_transaction(struct binder_proc *proc,
 		} break;
 		case BINDER_TYPE_HANDLE:
 		case BINDER_TYPE_WEAK_HANDLE: {
+			//如果传递的是handle，则分两种情况
 			struct binder_ref *ref = binder_get_ref(proc, fp->handle);
 
 			if (ref == NULL) {
@@ -1604,6 +1689,7 @@ static void binder_transaction(struct binder_proc *proc,
 				return_error = BR_FAILED_REPLY;
 				goto err_binder_get_ref_failed;
 			}
+			//如果要传递的node是要对应的service的话，则service是能访问自己的node的，直接转成node就可以了
 			if (ref->node->proc == target_proc) {
 				if (fp->type == BINDER_TYPE_HANDLE)
 					fp->type = BINDER_TYPE_BINDER;
@@ -1618,6 +1704,7 @@ static void binder_transaction(struct binder_proc *proc,
 					     ref->debug_id, ref->desc, ref->node->debug_id,
 					     (u64)ref->node->ptr);
 			} else {
+				//如果要传递的node是其他进程的话，则需要将node安装到要执行的进程中
 				struct binder_ref *new_ref;
 
 				new_ref = binder_get_ref_for_node(target_proc, ref->node);
@@ -1654,6 +1741,7 @@ static void binder_transaction(struct binder_proc *proc,
 				goto err_fd_not_allowed;
 			}
 
+			//获取要传送fd的file
 			file = fget(fp->handle);
 			if (file == NULL) {
 				binder_user_error("%d:%d got transaction with invalid fd, %d\n",
@@ -1668,17 +1756,20 @@ static void binder_transaction(struct binder_proc *proc,
 				return_error = BR_FAILED_REPLY;
 				goto err_get_unused_fd_failed;
 			}
+			//从目标进程分配一个fd
 			target_fd = task_get_unused_fd_flags(target_proc, O_CLOEXEC);
 			if (target_fd < 0) {
 				fput(file);
 				return_error = BR_FAILED_REPLY;
 				goto err_get_unused_fd_failed;
 			}
+			//安装fd
 			task_fd_install(target_proc, target_fd, file);
 			trace_binder_transaction_fd(t, fp->handle, target_fd);
 			binder_debug(BINDER_DEBUG_TRANSACTION,
 				     "        fd %d -> %d\n", fp->handle, target_fd);
 			/* TODO: fput? */
+			//传入已安装的fd
 			fp->handle = target_fd;
 		} break;
 
@@ -1695,6 +1786,7 @@ static void binder_transaction(struct binder_proc *proc,
 	} else if (!(t->flags & TF_ONE_WAY)) {
 		BUG_ON(t->buffer->async_transaction != 0);
 		t->need_reply = 1;
+		//这一点不明白
 		t->from_parent = thread->transaction_stack;
 		thread->transaction_stack = t;
 	} else {
@@ -1791,6 +1883,7 @@ static int binder_thread_write(struct binder_proc *proc,
 			if (get_user(target, (uint32_t __user *)ptr))
 				return -EFAULT;
 			ptr += sizeof(uint32_t);
+			//对于任一个进程，第一个获取的都是service manager
 			if (target == 0 && binder_context_mgr_node &&
 			    (cmd == BC_INCREFS || cmd == BC_ACQUIRE)) {
 				ref = binder_get_ref_for_node(proc,
@@ -2522,6 +2615,7 @@ static void binder_release_work(struct list_head *list)
 
 }
 
+//查找（或创建）当前线程对应的binder_thread结构
 static struct binder_thread *binder_get_thread(struct binder_proc *proc)
 {
 	struct binder_thread *thread = NULL;
@@ -2694,6 +2788,7 @@ out:
 	return ret;
 }
 
+//设置本进程为 service manager
 static int binder_ioctl_set_ctx_mgr(struct file *filp)
 {
 	int ret = 0;
@@ -2884,7 +2979,7 @@ static int binder_mmap(struct file *filp, struct vm_area_struct *vma)
 		failure_string = "already mapped";
 		goto err_already_mapped;
 	}
-
+//在vmalloc（kernel）的空间中找到一段为使用的空间
 	area = get_vm_area(vma->vm_end - vma->vm_start, VM_IOREMAP);
 	if (area == NULL) {
 		ret = -ENOMEM;
@@ -2914,6 +3009,7 @@ static int binder_mmap(struct file *filp, struct vm_area_struct *vma)
 	vma->vm_ops = &binder_vm_ops;
 	vma->vm_private_data = proc;
 
+//这里为什么要先映射一个页面？
 	if (binder_update_page_range(proc, 1, proc->buffer, proc->buffer + PAGE_SIZE, vma)) {
 		ret = -ENOMEM;
 		failure_string = "alloc small buf";
@@ -3664,6 +3760,7 @@ static const struct file_operations binder_fops = {
 	.release = binder_release,
 };
 
+//binder对应的设备
 static struct miscdevice binder_miscdev = {
 	.minor = MISC_DYNAMIC_MINOR,
 	.name = "binder",

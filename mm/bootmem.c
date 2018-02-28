@@ -252,7 +252,7 @@ void reset_node_managed_pages(pg_data_t *pgdat)
 	for (z = pgdat->node_zones; z < pgdat->node_zones + MAX_NR_ZONES; z++)
 		z->managed_pages = 0;
 }
-
+//将所有z->managed_pages设为零
 void __init reset_all_zones_managed_pages(void)
 {
 	struct pglist_data *pgdat;

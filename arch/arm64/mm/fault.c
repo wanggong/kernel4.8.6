@@ -161,6 +161,7 @@ static bool is_el1_instruction_abort(unsigned int esr)
 /*
  * The kernel tried to access some page that wasn't present.
  */
+//这时候表示已经没办法修复fault了，只能报错或fixup的特殊处理。 
 static void __do_kernel_fault(struct mm_struct *mm, unsigned long addr,
 			      unsigned int esr, struct pt_regs *regs)
 {
@@ -168,6 +169,7 @@ static void __do_kernel_fault(struct mm_struct *mm, unsigned long addr,
 	 * Are we prepared to handle this kernel fault?
 	 * We are almost certainly not prepared to handle instruction faults.
 	 */
+	//是否需要fixup处理？
 	if (!is_el1_instruction_abort(esr) && fixup_exception(regs))
 		return;
 
@@ -182,6 +184,7 @@ static void __do_kernel_fault(struct mm_struct *mm, unsigned long addr,
 	show_pte(mm, addr);
 	die("Oops", regs, esr);
 	bust_spinlocks(0);
+	//将当前线程退出，schedule其他线程。
 	do_exit(SIGKILL);
 }
 
@@ -231,7 +234,7 @@ static void do_bad_area(unsigned long addr, unsigned int esr, struct pt_regs *re
 
 #define VM_FAULT_BADMAP		0x010000
 #define VM_FAULT_BADACCESS	0x020000
-
+//进行页异常处理，这里会申请新页，安装到对应的地址，如果成功返回0.
 static int __do_page_fault(struct mm_struct *mm, unsigned long addr,
 			   unsigned int mm_flags, unsigned long vm_flags,
 			   struct task_struct *tsk)
@@ -285,6 +288,7 @@ static bool is_el0_instruction_abort(unsigned int esr)
 	return ESR_ELx_EC(esr) == ESR_ELx_EC_IABT_LOW;
 }
 
+//kernel或user模式的pagefault都会走这个函数
 static int __kprobes do_page_fault(unsigned long addr, unsigned int esr,
 				   struct pt_regs *regs)
 {
@@ -293,20 +297,26 @@ static int __kprobes do_page_fault(unsigned long addr, unsigned int esr,
 	int fault, sig, code;
 	unsigned long vm_flags = VM_READ | VM_WRITE | VM_EXEC;
 	unsigned int mm_flags = FAULT_FLAG_ALLOW_RETRY | FAULT_FLAG_KILLABLE;
-
+//kprobe有关，不知道干嘛
 	if (notify_page_fault(regs, esr))
 		return 0;
 
 	tsk = current;
+//这里澄清一个以前的认知错误，app的线程在user和kernel是同一个，只是在user和kernel有两个不同的
+//堆栈，运行在不同的模式，但是task数据结构只有一个，所以如果是app的线程的话，这里tsk->mm肯定是
+//存在的，就是不会是0。
 	mm  = tsk->mm;
 
 	/*
 	 * If we're in an interrupt or have no user context, we must not take
 	 * the fault.
 	 */
+	//这里的判断是如果是kernel的线程就转到no_context去处理，user的线程，不论是在kernel模式还是
+	//user模式，都继续向下走。
 	if (faulthandler_disabled() || !mm)
 		goto no_context;
 
+	//根据pstate寄存器判断是否是usermode，即判断是运行在user模式还是kernel模式
 	if (user_mode(regs))
 		mm_flags |= FAULT_FLAG_USER;
 
@@ -350,7 +360,7 @@ retry:
 			goto no_context;
 #endif
 	}
-
+	//进行页异常处理，这里会申请新页，安装到对应的地址，如果成功返回0.
 	fault = __do_page_fault(mm, addr, mm_flags, vm_flags, tsk);
 
 	/*
@@ -394,7 +404,7 @@ retry:
 	/*
 	 * Handle the "normal" case first - VM_FAULT_MAJOR
 	 */
-//fault是否被修复了?	 
+//fault是否被修复了?	 被修复了返回0.
 	if (likely(!(fault & (VM_FAULT_ERROR | VM_FAULT_BADMAP |
 			      VM_FAULT_BADACCESS))))
 		return 0;
@@ -403,10 +413,12 @@ retry:
 	 * If we are in kernel mode at this point, we have no context to
 	 * handle this fault with.
 	 */
+	//如果是在kernel模式执行，则转到kernel的fault
 	if (!user_mode(regs))
 		goto no_context;
 
 //走到此处说明fault没有被修复，报告之
+//oom表示因为内存不足导致的失败。
 	if (fault & VM_FAULT_OOM) {
 		/*
 		 * We ran out of memory, call the OOM killer, and return to

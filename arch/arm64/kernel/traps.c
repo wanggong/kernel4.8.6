@@ -238,6 +238,7 @@ static int __die(const char *str, int err, struct thread_info *thread,
 		 str, err, ++die_counter);
 
 	/* trap and error numbers are mostly meaningless on ARM */
+	//通知其他模块，在lc1881上，此处通知会将其他cpu stop，最终引发watchdog
 	ret = notify_die(DIE_OOPS, str, regs, err, 0, SIGSEGV);
 	if (ret == NOTIFY_STOP)
 		return ret;
@@ -562,6 +563,8 @@ const char *esr_get_class_string(u32 esr)
 /*
  * bad_mode handles the impossible case in the exception vector.
  */
+ //带invalid后缀的向量都是Linux做未做进一步处理的向量，默认都会进入bad_mode()流程，
+ //说明这类异常Linux内核无法处理，只能上报给用户进程(用户态，sigkill或sigbus信号)或die(内核态)
 asmlinkage void bad_mode(struct pt_regs *regs, int reason, unsigned int esr)
 {
 	siginfo_t info;

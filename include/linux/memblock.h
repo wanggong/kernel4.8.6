@@ -41,6 +41,7 @@ struct memblock_type {
 	unsigned long cnt;	/* number of regions */
 	unsigned long max;	/* size of the allocated array */
 	phys_addr_t total_size;	/* size of all regions */
+	//regions是按照base的顺序排列的。
 	struct memblock_region *regions;
 };
 

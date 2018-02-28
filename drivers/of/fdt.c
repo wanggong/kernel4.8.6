@@ -686,6 +686,7 @@ static int __init __fdt_scan_reserved_mem(unsigned long node, const char *uname,
  * defined in device tree structures. It should be called by arch specific code
  * once the early allocator (i.e. memblock) has been fully activated.
  */
+ //扫描reserved memory，将他们加入到reserved表中
 void __init early_init_fdt_scan_reserved_mem(void)
 {
 	int n;

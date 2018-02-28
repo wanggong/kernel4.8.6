@@ -91,7 +91,7 @@ void __init free_bootmem_late(unsigned long addr, unsigned long size)
 		totalram_pages++;
 	}
 }
-
+//将(start,end)对应的page释放到对应的zone的freelist中。
 static void __init __free_pages_memory(unsigned long start, unsigned long end)
 {
 	int order;
@@ -123,6 +123,7 @@ static unsigned long __init __free_memory_core(phys_addr_t start,
 	return end_pfn - start_pfn;
 }
 
+//将memblock中的free的page释放到zone的freelist中。
 static unsigned long __init free_low_memory_core_early(void)
 {
 	unsigned long count = 0;
@@ -133,7 +134,7 @@ static unsigned long __init free_low_memory_core_early(void)
 
 	for_each_reserved_mem_region(i, &start, &end)
 		reserve_bootmem_region(start, end);
-
+//将memblock中的free的page释放到zone的freelist中。
 	for_each_free_mem_range(i, NUMA_NO_NODE, MEMBLOCK_NONE, &start, &end,
 				NULL)
 		count += __free_memory_core(start, end);
@@ -185,6 +186,7 @@ void __init reset_all_zones_managed_pages(void)
  *
  * Returns the number of pages actually released.
  */
+//将memblock中的free的page释放到zone的freelist中。 
 unsigned long __init free_all_bootmem(void)
 {
 	unsigned long pages;

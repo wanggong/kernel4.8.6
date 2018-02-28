@@ -488,6 +488,8 @@ struct of_intc_desc {
  * This function scans the device tree for matching interrupt controller nodes,
  * and calls their initialization functions in order with parents first.
  */
+ //of_irq_init 是在所有的device node中寻找中断控制器节点，形成树状结构（系统可以有多个interrupt 
+ //controller，之所以形成中断控制器的树状结构，是为了让系统中所有的中断控制器驱动按照一定的顺序进行初始化）
 void __init of_irq_init(const struct of_device_id *matches)
 {
 	const struct of_device_id *match;
@@ -498,6 +500,7 @@ void __init of_irq_init(const struct of_device_id *matches)
 	INIT_LIST_HEAD(&intc_desc_list);
 	INIT_LIST_HEAD(&intc_parent_list);
 
+//使用广度优先搜索，初始化所有的中断控制器。
 	for_each_matching_node_and_match(np, matches, &match) {
 		if (!of_find_property(np, "interrupt-controller", NULL) ||
 				!of_device_is_available(np))
@@ -549,6 +552,7 @@ void __init of_irq_init(const struct of_device_id *matches)
 			pr_debug("of_irq_init: init %s (%p), parent %p\n",
 				 desc->dev->full_name,
 				 desc->dev, desc->interrupt_parent);
+			//调用其初始化函数irq_init_cb
 			ret = desc->irq_init_cb(desc->dev,
 						desc->interrupt_parent);
 			if (ret) {

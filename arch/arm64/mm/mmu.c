@@ -71,6 +71,7 @@ pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
 }
 EXPORT_SYMBOL(phys_mem_access_prot);
 
+//为pgd分配一个page
 static phys_addr_t __init early_pgtable_alloc(void)
 {
 	phys_addr_t phys;
@@ -318,6 +319,7 @@ static void create_mapping_late(phys_addr_t phys, unsigned long virt,
 			     NULL, !debug_pagealloc_enabled());
 }
 
+//map所有的其他的memory
 static void __init __map_memblock(pgd_t *pgd, phys_addr_t start, phys_addr_t end)
 {
 	unsigned long kernel_start = __pa(_text);
@@ -365,6 +367,7 @@ static void __init __map_memblock(pgd_t *pgd, phys_addr_t start, phys_addr_t end
 			     early_pgtable_alloc, !debug_pagealloc_enabled());
 }
 
+//map所有的其他的memory
 static void __init map_mem(pgd_t *pgd)
 {
 	struct memblock_region *reg;
@@ -433,6 +436,7 @@ static void __init map_kernel_segment(pgd_t *pgd, void *va_start, void *va_end,
 /*
  * Create fine-grained mappings for the kernel.
  */
+//将kernel自身的代码和数据map到PAGE_OFFSET上
 static void __init map_kernel(pgd_t *pgd)
 {
 	static struct vm_struct vmlinux_text, vmlinux_rodata, vmlinux_init, vmlinux_data;
@@ -473,12 +477,14 @@ static void __init map_kernel(pgd_t *pgd)
  * paging_init() sets up the page tables, initialises the zone memory
  * maps and sets up the zero page.
  */
+ //将能映射的page，映射到PAGE_OFFSET上，线性映射。
 void __init paging_init(void)
 {
 	phys_addr_t pgd_phys = early_pgtable_alloc();
 	pgd_t *pgd = pgd_set_fixmap(pgd_phys);
-
+//map kernel image的pages
 	map_kernel(pgd);
+//map除kernel image之外的其他的pages
 	map_mem(pgd);
 
 	/*
@@ -541,6 +547,8 @@ int kern_addr_valid(unsigned long addr)
 
 	return pfn_valid(pte_pfn(*pte));
 }
+
+//建立从虚拟地址(start,end)的映射，物理地址是什么没关系，只要将映射建立起来就可以了。
 #ifdef CONFIG_SPARSEMEM_VMEMMAP
 #if !ARM64_SWAPPER_USES_SECTION_MAPS
 int __meminit vmemmap_populate(unsigned long start, unsigned long end, int node)
@@ -610,7 +618,15 @@ static inline pte_t * fixmap_pte(unsigned long addr)
 {
 	return &bm_pte[pte_index(addr)];
 }
-
+/*
+动态分配虚拟地址以及建立地址映射是一个复杂的过程，在内核完全启动之后，
+内存管理可以提供各种丰富的API让内核的其他模块可以完成虚拟地址分配和建
+立地址映射的功能，但是，在内核的启动过程中，有些模块需要使用虚拟内存并
+mapping到指定的物理地址上，而且，这些模块也没有办法等待完整的内存管理模
+块初始化之后再进行地址映射。因此，linux kernel固定分配了一些fixmap的虚
+拟地址，这些地址有固定的用途，使用该地址的模块在初始化的时候，讲这些固
+定分配的地址mapping到指定的物理地址上去。
+*/
 void __init early_fixmap_init(void)
 {
 	pgd_t *pgd;
@@ -738,7 +754,7 @@ void *__init fixmap_remap_fdt(phys_addr_t dt_phys)
 	dt_virt = __fixmap_remap_fdt(dt_phys, &size, PAGE_KERNEL_RO);
 	if (!dt_virt)
 		return NULL;
-
+//这个时候memblock的内容尚未完全建立，所以reserve可以在memoryblock建立起来之前就调用
 	memblock_reserve(dt_phys, size);
 	return dt_virt;
 }

@@ -39,9 +39,10 @@ int arch_show_interrupts(struct seq_file *p, int prec)
 	seq_printf(p, "%*s: %10lu\n", prec, "Err", irq_err_count);
 	return 0;
 }
-
+//会在entry.s中被irq_handler调用
 void (*handle_arch_irq)(struct pt_regs *) = NULL;
 
+//设置gic中断处理程序
 void __init set_handle_irq(void (*handle_irq)(struct pt_regs *))
 {
 	if (handle_arch_irq)

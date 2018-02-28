@@ -720,8 +720,10 @@ void __init smp_prepare_cpus(unsigned int max_cpus)
 	}
 }
 
+//SGI中断触发函数
 void (*__smp_cross_call)(const struct cpumask *, unsigned int);
 
+//设置SGI中断触发函数
 void __init set_smp_cross_call(void (*fn)(const struct cpumask *, unsigned int))
 {
 	__smp_cross_call = fn;
@@ -737,6 +739,7 @@ static const char *ipi_types[NR_IPI] __tracepoint_string = {
 	S(IPI_WAKEUP, "CPU wake-up interrupts"),
 };
 
+//触发SGI中断
 static void smp_cross_call(const struct cpumask *target, unsigned int ipinr)
 {
 	trace_ipi_raise(target, ipi_types[ipinr]);
@@ -809,6 +812,7 @@ static void ipi_cpu_stop(unsigned int cpu)
 /*
  * Main handler for inter-processor interrupts
  */
+ //处理IPI，即SGI中断
 void handle_IPI(int ipinr, struct pt_regs *regs)
 {
 	unsigned int cpu = smp_processor_id();
@@ -869,7 +873,31 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 		trace_ipi_exit_rcuidle(ipi_types[ipinr]);
 	set_irq_regs(old_regs);
 }
+/*
+In:
+    <<task - task switch types - timeslice, voluntary, preemption.txt>>
 
+We see a typical case of how smp_send_reschedule() is used:
+
+
+# The logic of resched_task()
+#
+#   If UP, just set TIF_NEED_RESCHED flag of "rq_dest->curr", that is, "current".
+#
+#   If SMP
+#       if "rq_dest->curr" and task "current" are just on local CPU, then, simply set TIF_NEED_RESCHED flag.
+#       because "rq_dest->curr" == "current".
+#
+#       if "rq_dest->curr" are on other CPUs, besides set TIF_NEED_RESCHED flag of "rq_dest->curr".
+#       send a IPI through smp_send_reschedule(), normally the IPI ISR running on other CPU does nothing, 
+#       but simply IRET, preemption will happen when IRET procedure.
+#
+#       See 
+#           /arch/x86/kernel/smp.c - smp_reschedule_interrupt()
+#
+*/
+
+//具体使用见 kick_process 
 void smp_send_reschedule(int cpu)
 {
 	smp_cross_call(cpumask_of(cpu), IPI_RESCHEDULE);

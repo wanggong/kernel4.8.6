@@ -63,8 +63,24 @@
  * TASK_SIZE - the maximum size of a user space task.
  * TASK_UNMAPPED_BASE - the lower boundary of the mmap VM area.
  */
+//这个在.config中配置，在lc1861中配置是39
 #define VA_BITS			(CONFIG_ARM64_VA_BITS)
+
+//	内核地址空间的起始地址
 #define VA_START		(UL(0xffffffffffffffff) << VA_BITS)
+
+/*
+VA_BITS定义了虚拟地址空间的bit数（该值也就是定义了用户态程序或者内核能够访问的虚拟地址空间
+的size），假设VA_BITS被设定为39个bit，那么PAGE_OFFSET就是0xffffffc0-00000000。PAGE_OFFSET的
+名字也不好（个人观点，可能有误），OFFSET表明的是一个偏移，内核空间被划分成一个个的page，
+PAGE_OFFSET看起来应该是定义以page为单位的偏移。但是，以什么为基准的偏移呢？PAGE_OFFSET的名字
+中没有给出，当然实际上，这个符号是定义以整个address space的起始地址（也就是0）为基准。另外，
+虽然这个地址是要求page对齐，但是实际上，这个符号仍然定义的是虚拟地址的offset（而不是page的offset）。
+根据上面的理由，我觉得定义成KERNEL_IMG_OFFSET会更好理解一些。一句话总结：PAGE_OFFSET定义了将kernel 
+image安放在虚拟地址空间的哪个位置上。
+*/
+//kernel的空间实际上也是分成连部分，低地址（VA_START-PAGE_OFFSET）是给动态分配用的，高地址(>PAGE_OFFSET)
+//是线性映射用的。
 #define PAGE_OFFSET		(UL(0xffffffffffffffff) << (VA_BITS - 1))
 #define KIMAGE_VADDR		(MODULES_END)
 #define MODULES_END		(MODULES_VADDR + MODULES_VSIZE)
@@ -75,6 +91,12 @@
 #define PCI_IO_START		(PCI_IO_END - PCI_IO_SIZE)
 #define FIXADDR_TOP		(PCI_IO_START - SZ_2M)
 #define TASK_SIZE_64		(UL(1) << VA_BITS)
+
+//	一般而言，用户地址空间从0开始，大小就是TASK_SIZE，因此，
+//这个宏定义的全称应该是task userspace size。对于ARM64的用
+//户空间进程而言，有两种，一种是运行在AArch64状态下，另外一
+//种是运行在AArch32状态，因此，实际上代码中又定义了
+//TASK_SIZE_32和TASK_SIZE_64两个宏定义。
 
 #ifdef CONFIG_COMPAT
 #define TASK_SIZE_32		UL(0x100000000)
@@ -87,7 +109,10 @@
 #endif /* CONFIG_COMPAT */
 
 #define TASK_UNMAPPED_BASE	(PAGE_ALIGN(TASK_SIZE / 4))
-
+/*
+KERNEL_START是kernel开始运行的虚拟地址，更确切的说是内核正文段开始的虚拟地址。 
+在链接脚本文件中（参考arch/arm64/kernel下的vmlinux.lds.S）
+*/
 #define KERNEL_START      _text
 #define KERNEL_END        _end
 
@@ -154,7 +179,8 @@
 
 #include <linux/bitops.h>
 #include <linux/mmdebug.h>
-
+//	系统内存的起始物理地址。在系统初始化的过程中，
+//会把PHYS_OFFSET开始的物理内存映射到PAGE_OFFSET的虚拟内存上去。
 extern s64			memstart_addr;
 /* PHYS_OFFSET - the physical address of the start of memory. */
 #define PHYS_OFFSET		({ VM_BUG_ON(memstart_addr & 1); memstart_addr; })

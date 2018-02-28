@@ -17,6 +17,7 @@
 #include <linux/smp.h>
 #include <linux/fs.h>
 
+//系统所有的irq的domain都在这个链表上
 static LIST_HEAD(irq_domain_list);
 static DEFINE_MUTEX(irq_domain_mutex);
 
@@ -219,6 +220,17 @@ EXPORT_SYMBOL_GPL(irq_domain_add_simple);
  * for all legacy interrupts except 0 (which is always the invalid irq for
  * a legacy controller).
  */
+
+/*
+这段代码主要是向系统中注册一个irq domain的数据结构。为何需要struct irq_domain这样一个数据结构呢？
+从linux kernel的角度来看，任何外部的设备的中断都是一个异步事件，kernel都需要识别这个事件。在内核
+中，用IRQ number来标识某一个设备的某个interrupt request。有了IRQ number就可以定位到该中断的描述符
+（struct irq_desc）。但是，对于中断控制器而言，它不并知道IRQ number，它只是知道HW interrupt number
+（中断控制器会为其支持的interrupt source进行编码，这个编码被称为Hardware interrupt number ）。不同
+的软件模块用不同的ID来识别interrupt source，这样就需要映射了。如何将Hardware interrupt number 映射
+到IRQ number呢？这需要一个translation object，内核定义为struct irq_domain。
+
+*/
 struct irq_domain *irq_domain_add_legacy(struct device_node *of_node,
 					 unsigned int size,
 					 unsigned int first_irq,
@@ -454,6 +466,7 @@ EXPORT_SYMBOL_GPL(irq_create_direct_mapping);
  * If the sense/trigger is to be specified, set_irq_type() should be called
  * on the number returned from that call.
  */
+ //为hwirq建立对应的软件irq映射，并返回
 unsigned int irq_create_mapping(struct irq_domain *domain,
 				irq_hw_number_t hwirq)
 {
@@ -517,6 +530,7 @@ EXPORT_SYMBOL_GPL(irq_create_mapping);
  * 0 is returned upon success, while any failure to establish a static
  * mapping is treated as an error.
  */
+//建立从hwirq_base开始的count个irq的映射，irq_base是对应的virq 
 int irq_create_strict_mappings(struct irq_domain *domain, unsigned int irq_base,
 			       irq_hw_number_t hwirq_base, int count)
 {

@@ -234,7 +234,7 @@ struct page *sparse_decode_mem_map(unsigned long coded_mem_map, unsigned long pn
 	return ((struct page *)coded_mem_map) + section_nr_to_pfn(pnum);
 }
 
-//完整设置一个mem_section，其总mem_map和pageblock_bitmap分别是page和flags的两段内存
+//完整设置一个mem_section，其中mem_map和pageblock_bitmap分别是page和flags的两段内存
 //pnum表示第几个section
 static int __meminit sparse_init_one_section(struct mem_section *ms,
 		unsigned long pnum, struct page *mem_map,
@@ -450,6 +450,7 @@ static void __init sparse_early_mem_maps_alloc_node(void *data,
 					 map_count, nodeid);
 }
 #else
+//分配memmap的空间，并映射到对应的地址
 static struct page __init *sparse_early_mem_map_alloc(unsigned long pnum)
 {
 	struct page *map;

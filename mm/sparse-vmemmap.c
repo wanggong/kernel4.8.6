@@ -248,7 +248,8 @@ int __meminit vmemmap_populate_basepages(unsigned long start,
 	return 0;
 }
 
-//将section(第pnum个)的pagemap的页表建立起来
+//将section(第pnum个)的pagemap的页表建立起来，这里是建立整个section的页表。
+//内存未必会占用整个section（一个section需要1G/4k=256k个pages），这样做是否存在浪费？
 struct page * __meminit sparse_mem_map_populate(unsigned long pnum, int nid)
 {
 	unsigned long start;

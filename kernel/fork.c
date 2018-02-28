@@ -330,6 +330,7 @@ int __weak arch_dup_task_struct(struct task_struct *dst,
 	return 0;
 }
 
+//在堆栈的最后设置magic，用于检查kernel堆栈溢出。
 void set_task_stack_end_magic(struct task_struct *tsk)
 {
 	unsigned long *stackend;

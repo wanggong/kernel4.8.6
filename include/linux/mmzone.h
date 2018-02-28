@@ -471,7 +471,9 @@ lowmem_reserve是可以通过/proc/sys/vm/lowmem_reserve_ratio设置的
 	 * touching zone->managed_pages and totalram_pages.
 	 */
 	unsigned long		managed_pages;
+	//此zone跨越的pages个数，包括空洞，见 calculate_node_totalpages
 	unsigned long		spanned_pages;
+	//此zone中，真正存在的pages的个数
 	unsigned long		present_pages;
 
 	const char		*name;
@@ -654,7 +656,9 @@ enum {
  * here to avoid dereferences into large structures and lookups of tables
  */
 struct zoneref {
+//指向的具体的zone
 	struct zone *zone;	/* Pointer to actual zone */
+//上面指向的zone在其所在node中的index
 	int zone_idx;		/* zone_idx(zoneref->zone) */
 };
 
@@ -696,7 +700,7 @@ struct bootmem_data;
 typedef struct pglist_data {
 	struct zone node_zones[MAX_NR_ZONES];
 /*******************************************************************************
-//node_zonelists是按照zone_idx的顺序从大到小排列的，第一个是zone_idx做大的zone    
+//node_zonelists是按照zone_idx的顺序从大到小排列的，第一个是zone_idx最大的zone    
 //见build_zonelists_node   
 //所以在node_zones中的排序是
 内存分配是这样查找的:
@@ -730,7 +734,11 @@ zone在一块，按从大到小排列。
 	spinlock_t node_size_lock;
 #endif
 	unsigned long node_start_pfn;
+
+	//此node中所有zone中，存在的pages个数的总和，见 calculate_node_totalpages
 	unsigned long node_present_pages; /* total number of physical pages */
+	
+	//此node中所有zone所跨越的pages个数的总和，见 calculate_node_totalpages
 	unsigned long node_spanned_pages; /* total size of physical page
 					     range, including holes */
 	int node_id;
@@ -1199,7 +1207,7 @@ struct mem_section {
 	 * before using it wrong.
 	 */
 //为当前section分配的page的首地址，page是个数组
-//见sparse_init
+//见 sparse_init
 	unsigned long section_mem_map;
 
 	/* See declaration of similar field in struct zone */

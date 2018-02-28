@@ -26,6 +26,8 @@
  * It may be assumed that this function implies a write memory barrier before
  * changing the task state if and only if any tasks are woken up.
  */
+ //从这里和 wait_for_completion 这两个函数可以看出，wait和complete必须是一一对应的，如果先调用了complete，后调用
+ //wait_for_completion，则wait_for_completion将不会等待，直接返回
 void complete(struct completion *x)
 {
 	unsigned long flags;

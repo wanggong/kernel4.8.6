@@ -404,7 +404,7 @@ rb_subtree_last是用于加快search的速度。这是一种对范围搜索的手段。
 	/* Information about our backing store: */
 //vm_start对应文件中的偏移    
 	unsigned long vm_pgoff;		/* Offset (within vm_file) in PAGE_SIZE
-					   units */
+//vma map的file					   units */
 	struct file * vm_file;		/* File we map to (can be NULL). */
 	void * vm_private_data;		/* was vm_pte (shared mem) */
 
