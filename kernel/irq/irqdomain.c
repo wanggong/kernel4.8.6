@@ -344,6 +344,7 @@ void irq_domain_disassociate(struct irq_domain *domain, unsigned int irq)
 	}
 }
 
+//将软件irq和硬件irq联系起来
 int irq_domain_associate(struct irq_domain *domain, unsigned int virq,
 			 irq_hw_number_t hwirq)
 {
@@ -399,6 +400,7 @@ int irq_domain_associate(struct irq_domain *domain, unsigned int virq,
 }
 EXPORT_SYMBOL_GPL(irq_domain_associate);
 
+//将软件irq_base和硬件hwirq_base联系起来，以便可以从hwirq找到对应的软件irq
 void irq_domain_associate_many(struct irq_domain *domain, unsigned int irq_base,
 			       irq_hw_number_t hwirq_base, int count)
 {

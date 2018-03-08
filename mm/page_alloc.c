@@ -4141,6 +4141,7 @@ static inline void show_node(struct zone *zone)
 }
 //预估能使用的内存的大小，仅仅是毛估一下
 //有啥用?
+//计算方式：(NR_FREE_PAGES-totalreserve_pages)+(LRU_ACTIVE_FILE+LRU_INACTIVE_FILE-wmark_low)+(NR_SLAB_RECLAIMABLE-wmark_low)
 long si_mem_available(void)
 {
 	long available;

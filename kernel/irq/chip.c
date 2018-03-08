@@ -535,6 +535,7 @@ static inline void preflow_handler(struct irq_desc *desc)
 static inline void preflow_handler(struct irq_desc *desc) { }
 #endif
 
+//向chip发送eoi，表示该中断已经处理完毕。
 static void cond_unmask_eoi_irq(struct irq_desc *desc, struct irq_chip *chip)
 {
 	if (!(desc->istate & IRQS_ONESHOT)) {
@@ -565,6 +566,15 @@ static void cond_unmask_eoi_irq(struct irq_desc *desc, struct irq_chip *chip)
  *	for modern forms of interrupt handlers, which handle the flow
  *	details in hardware, transparently.
  */
+//arm gic的spi和ppi的具体中断处理函数
+//调用过程是
+/*
+1、ARM中断处理过程 
+2、gic_handle_irq 
+3、generic_handle_irq 
+4、在generic_handle_irq_desc函数中调用desc->handle_irq(irq, desc)，
+对于GIC而言，应该是handle_fasteoi_irq 
+*/
 void handle_fasteoi_irq(struct irq_desc *desc)
 {
 	struct irq_chip *chip = desc->irq_data.chip;

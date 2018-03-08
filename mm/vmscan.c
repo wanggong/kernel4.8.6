@@ -494,6 +494,9 @@ void drop_slab_node(int nid)
 	} while (freed > 10);
 }
 
+
+//wgz 回收slab中所有的空闲内存
+
 void drop_slab(void)
 {
 	int nid;

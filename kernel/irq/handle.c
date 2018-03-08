@@ -132,6 +132,16 @@ void __irq_wake_thread(struct irq_desc *desc, struct irqaction *action)
 	wake_up_process(action->thread);
 }
 
+//调用desc的action->handler处理中断
+//这个函数算是比较核心的一个函数了
+//调用过程是
+/*
+1、ARM中断处理过程 
+2、gic_handle_irq 
+3、generic_handle_irq 
+4、在generic_handle_irq_desc函数中调用desc->handle_irq(irq, desc)，
+对于GIC而言，应该是handle_fasteoi_irq 
+*/
 irqreturn_t __handle_irq_event_percpu(struct irq_desc *desc, unsigned int *flags)
 {
 	irqreturn_t retval = IRQ_NONE;
@@ -176,7 +186,14 @@ irqreturn_t __handle_irq_event_percpu(struct irq_desc *desc, unsigned int *flags
 
 	return retval;
 }
-
+//调用过程是
+/*
+1、ARM中断处理过程 
+2、gic_handle_irq 
+3、generic_handle_irq 
+4、在generic_handle_irq_desc函数中调用desc->handle_irq(irq, desc)，
+对于GIC而言，应该是handle_fasteoi_irq 
+*/
 irqreturn_t handle_irq_event_percpu(struct irq_desc *desc)
 {
 	irqreturn_t retval;
@@ -190,7 +207,14 @@ irqreturn_t handle_irq_event_percpu(struct irq_desc *desc)
 		note_interrupt(desc, retval);
 	return retval;
 }
-
+//调用过程是
+/*
+1、ARM中断处理过程 
+2、gic_handle_irq 
+3、generic_handle_irq 
+4、在generic_handle_irq_desc函数中调用desc->handle_irq(irq, desc)，
+对于GIC而言，应该是handle_fasteoi_irq 
+*/
 irqreturn_t handle_irq_event(struct irq_desc *desc)
 {
 	irqreturn_t ret;

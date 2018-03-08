@@ -748,12 +748,14 @@ struct block_device *bdgrab(struct block_device *bdev)
 }
 EXPORT_SYMBOL(bdgrab);
 
+//返回buffer的page数量
 long nr_blockdev_pages(void)
 {
 	struct block_device *bdev;
 	long ret = 0;
 	spin_lock(&bdev_lock);
 	list_for_each_entry(bdev, &all_bdevs, bd_list) {
+		//从这里可以看出，buffer也是通过bd_inode->i_mapping管理的
 		ret += bdev->bd_inode->i_mapping->nrpages;
 	}
 	spin_unlock(&bdev_lock);

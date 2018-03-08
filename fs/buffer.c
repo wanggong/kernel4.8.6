@@ -870,6 +870,7 @@ int remove_inode_buffers(struct inode *inode)
  * The retry flag is used to differentiate async IO (paging, swapping)
  * which may not fail from ordinary buffer allocations.
  */
+ //Îªpage·ÖÅäbuffer_head
 struct buffer_head *alloc_page_buffers(struct page *page, unsigned long size,
 		int retry)
 {

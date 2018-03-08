@@ -85,6 +85,7 @@ struct gic_chip_data {
 	u32 __percpu *saved_ppi_conf;
 #endif
 	struct irq_domain *domain;
+//支持的中断数量
 	unsigned int gic_irqs;
 #ifdef CONFIG_GIC_NON_BANKED
 	void __iomem *(*get_base)(union gic_base *);
@@ -343,6 +344,23 @@ Processor Targets Registers由32个bit组成，因此每个Interrupt Processor
 Targets Registers可以表示4个HW interrupt ID的affinity，因此上面的代码中
 的shift就是计算该HW interrupt ID在寄存器中的偏移。
 */
+
+/*
+一个SPI的中断送往多个CPU对于软件处理是否OK呢？当然不OK了，具体原因大家可以思考一下。
+这时候，就要靠软件来控制了。大家可以去看看gic_set_affinity这个函数，实际上，这个函
+数确保一个中断的Interrupt Processor Targets Registers中的那8个bit只有一个bit被设定,
+一个SPI的终端送往多个CPU在绝大多数的时候是没有意义的，因为有可能会造成多个CPU去响应
+这个中断，虽然最后只有一个CPU会真正ack这个irq，而其它CPU会读到1023这个fake irq number，
+这样子意味着其它CPU浪费了资源做无用功，所以MIPS和ARM斗士在set_affinity函数里面做了点
+文法，无视上层传递下来的mask里面的多个bit，只会把该中断分发给mask里面的第一个有效位
+（这个位代表的cpu必须是online的）代表的CPU。 
+
+但是这里面也有例外，假设有一个secure watchdog，它是全局的一个watchdog，并不是per－cpu
+类型的，这个中断一般会分发给每一个CPU，如果系统有8核，那么这个secure watchdog会分配给
+8个CPU，当然这个代码可以自己写，不能呼叫ARM的API。这样做的理由是：全局的secure watchdog
+保障的是全系统的稳定，单个CPU的watch dog事件由per－cpu的watchdog irq去处理就行了。
+
+*/
 static int gic_set_affinity(struct irq_data *d, const struct cpumask *mask_val,
 			    bool force)
 {
@@ -350,15 +368,19 @@ static int gic_set_affinity(struct irq_data *d, const struct cpumask *mask_val,
 	unsigned int cpu, shift = (gic_irq(d) % 4) * 8;
 	u32 val, mask, bit;
 	unsigned long flags;
-
+//下面对是否强制设置作区分
+//如果不是强制设置，则从online的cpu和设置的cpu的交集中取第一个
 	if (!force)
 		cpu = cpumask_any_and(mask_val, cpu_online_mask);
+//如果是强制设置，则从设置的cpu中去第一个	
+//可以看出，无论是否是强制设置，最终都只会设置一个cpu为目的地，不会设置多个，这个
+//就是我们通过cat /proc/interrupts看到的所有的中断都在cpu0上处理的原因。
 	else
 		cpu = cpumask_first(mask_val);
 
 	if (cpu >= NR_GIC_CPU_IF || cpu >= nr_cpu_ids)
 		return -EINVAL;
-
+//下面就是更新寄存器，设置目标cpu了
 	raw_spin_lock_irqsave(&irq_controller_lock, flags);
 	mask = 0xff << shift;
 	bit = gic_cpu_map[cpu] << shift;
@@ -370,7 +392,14 @@ static int gic_set_affinity(struct irq_data *d, const struct cpumask *mask_val,
 }
 #endif
 
-//处理GIC irq
+/*
+对于GIC而言，其中断处理过程是： 
+1、ARM中断处理过程 
+2、gic_handle_irq 
+3、generic_handle_irq 
+4、在 generic_handle_irq_desc 函数中调用desc->handle_irq(irq, desc)，对于GIC而言，应该是handle_fasteoi_irq 
+
+*/
 static void __exception_irq_entry gic_handle_irq(struct pt_regs *regs)
 {
 	u32 irqstat, irqnr;
@@ -1164,6 +1193,7 @@ static int gic_init_bases(struct gic_chip_data *gic, int irq_start,
 	 * Find out how many interrupts are supported.
 	 * The GIC only supports up to 1020 interrupt sources.
 	 */
+//查找我们支持多少个中断
 	gic_irqs = readl_relaxed(gic_data_dist_base(gic) + GIC_DIST_CTR) & 0x1f;
 	gic_irqs = (gic_irqs + 1) * 32;
 	if (gic_irqs > 1020)
@@ -1188,7 +1218,7 @@ static int gic_init_bases(struct gic_chip_data *gic, int irq_start,
 		}
 
 		gic_irqs -= hwirq_base; /* calculate # of irqs to allocate */
-
+//这里从16开始，因为0-15是分配给SGI的
 		irq_base = irq_alloc_descs(irq_start, 16, gic_irqs,
 					   numa_node_id());
 		if (irq_base < 0) {

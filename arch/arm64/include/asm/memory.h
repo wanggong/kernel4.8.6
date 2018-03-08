@@ -79,7 +79,7 @@ PAGE_OFFSET看起来应该是定义以page为单位的偏移。但是，以什么为基准的偏移呢？PAGE_
 根据上面的理由，我觉得定义成KERNEL_IMG_OFFSET会更好理解一些。一句话总结：PAGE_OFFSET定义了将kernel 
 image安放在虚拟地址空间的哪个位置上。
 */
-//kernel的空间实际上也是分成连部分，低地址（VA_START-PAGE_OFFSET）是给动态分配用的，高地址(>PAGE_OFFSET)
+//kernel的空间实际上也是分成两部分，低地址（VA_START-PAGE_OFFSET）是给动态分配用的，高地址(>PAGE_OFFSET)
 //是线性映射用的。
 #define PAGE_OFFSET		(UL(0xffffffffffffffff) << (VA_BITS - 1))
 #define KIMAGE_VADDR		(MODULES_END)

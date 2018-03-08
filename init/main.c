@@ -477,7 +477,7 @@ static void __init mm_init(void)
 }
 
 //运行到这里的状态，
-//sp_el1（即sp）执行initial_sp
+//sp_el1（即sp）指向initial_sp
 //sp_el0,指向thread_info
 //ttbr0_el1指向idmap_pg_dir
 //ttbr1_el1指向swapper_pg_dir

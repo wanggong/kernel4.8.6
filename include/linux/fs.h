@@ -439,7 +439,7 @@ struct address_space {
 // <0 已经做了denywrite的map了，不能再做writeable的map了
 	atomic_t		i_mmap_writable;/* count VM_SHARED mappings */
 //链接和此mapping相关的vma,不同进程的vma都会链接到这里
-//注意:vm_area_struct是属于进程的，而address_space是属于某个文件的，有kernel管理，不属于任何进程
+//注意:vm_area_struct是属于进程的，而address_space是属于某个文件的，由kernel管理，不属于任何进程
 	struct rb_root		i_mmap;		/* tree of private and shared mappings */
 	struct rw_semaphore	i_mmap_rwsem;	/* protect tree, count, list */
 	/* Protected by tree_lock together with the radix tree */
@@ -447,8 +447,8 @@ struct address_space {
 	unsigned long		nrpages;	/* number of total pages */
 	/* number of shadow or DAX exceptional entries */
 	unsigned long		nrexceptional;
-//表示下一个writeback的index，具体使用见write_cache_pages
-//有时候我们写入时为了回收内存，这种情况下我们就可以不指定具体写入
+//表示下一个writeback的index，具体使用见 write_cache_pages
+//有时候我们写入是为了回收内存，这种情况下我们就可以不指定具体写入
 //的开始位置，这时候就可以使用这个变量，跟随上次写入的后面的地址继续写入，
 //这样至少有一个好处是这些块和之前写入的块有可能能合并
 	pgoff_t			writeback_index;/* writeback starts here */

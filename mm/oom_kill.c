@@ -167,6 +167,13 @@ static bool oom_unkillable_task(struct task_struct *p,
  * task consuming the most memory to avoid subsequent oom failures.
  */
  //返回一个进程badness的程度，值越大越bad，也就意味着越应该被kill掉
+ /*
+ 计算方式如下：
+1.  首先计算进程所使用的所有物理内存
+2.  如果是root用户，折扣3%
+3.  加上oom_score_adj*(totalpages/1000);就是说oom_score_adj越大，进程越容易被杀掉
+如果oom_score_adj==0，同时不是root用户，这里返回的就是进程占用的内存的大小
+ */
 unsigned long oom_badness(struct task_struct *p, struct mem_cgroup *memcg,
 			  const nodemask_t *nodemask, unsigned long totalpages)
 {
