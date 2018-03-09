@@ -21,6 +21,7 @@
 #include <asm/tlbflush.h>
 #include "internal.h"
 
+//报告mm的内存情况
 void task_mem(struct seq_file *m, struct mm_struct *mm)
 {
 	unsigned long text, lib, swap, ptes, pmds, anon, file, shmem;
@@ -1204,6 +1205,7 @@ static pagemap_entry_t pte_to_pagemap_entry(struct pagemapread *pm,
 	return make_pme(frame, flags);
 }
 
+//遍历pmd指向的page，生成pagemap
 static int pagemap_pmd_range(pmd_t *pmdp, unsigned long addr, unsigned long end,
 			     struct mm_walk *walk)
 {
@@ -1350,6 +1352,7 @@ static int pagemap_hugetlb_range(pte_t *ptep, unsigned long hmask,
  * determine which areas of memory are actually mapped and llseek to
  * skip over unmapped regions.
  */
+ //遍历整个内存空间，生成 pagemap ， pagemap是反映虚拟地址和物理地址的联系
 static ssize_t pagemap_read(struct file *file, char __user *buf,
 			    size_t count, loff_t *ppos)
 {

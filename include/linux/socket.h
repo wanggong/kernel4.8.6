@@ -145,6 +145,11 @@ static inline size_t msg_data_left(struct msghdr *msg)
 }
 
 /* "Socket"-level control message types: */
+/***********************************************
+SCM_RIGHTS传送fd的方式是这样的
+1. 在sendsocket的地方，将要发送的fd转换成struct file的指针，传送此指针。
+2. 在recv_msg的地方，将接收到的struct file的指针安装到接收进程的fd上。
+***********************************************/
 
 #define	SCM_RIGHTS	0x01		/* rw: access rights (array of int) */
 #define SCM_CREDENTIALS 0x02		/* rw: struct ucred		*/

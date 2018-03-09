@@ -13,6 +13,9 @@
 /* A global variable is a bit ugly, but it keeps the code simple */
 int sysctl_drop_caches;
 
+//注意这里仅仅是移除没有用户使用的pagecache
+//如果page是clean，并且没有用户使用（是否被映射到用户空间），则从
+//mapping移除
 static void drop_pagecache_sb(struct super_block *sb, void *unused)
 {
 	struct inode *inode, *toput_inode = NULL;

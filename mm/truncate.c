@@ -137,6 +137,7 @@ truncate_complete_page(struct address_space *mapping, struct page *page)
  *
  * Returns non-zero if the page was successfully invalidated.
  */
+//将page从mapping中移除
 static int
 invalidate_complete_page(struct address_space *mapping, struct page *page)
 {
@@ -190,6 +191,8 @@ EXPORT_SYMBOL(generic_error_remove_page);
  *
  * Returns 1 if the page is successfully invalidated, otherwise 0.
  */
+ //如果page是clean，并且没有用户使用（是否被映射到用户空间），则从
+ //mapping移除
 int invalidate_inode_page(struct page *page)
 {
 	struct address_space *mapping = page_mapping(page);
@@ -462,6 +465,9 @@ EXPORT_SYMBOL(truncate_inode_pages_final);
  * invalidate pages which are dirty, locked, under writeback or mapped into
  * pagetables.
  */
+
+//如果page是clean，并且没有用户使用（是否被映射到用户空间），则从
+//mapping移除
 unsigned long invalidate_mapping_pages(struct address_space *mapping,
 		pgoff_t start, pgoff_t end)
 {

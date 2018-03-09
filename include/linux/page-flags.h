@@ -71,6 +71,7 @@
  * SPARSEMEM section (for variants of SPARSEMEM that require section ids like
  * SPARSEMEM_EXTREME with !SPARSEMEM_VMEMMAP).
  */
+//page是否是dirty和是否最近被访问了，都是通过软件实现的
 enum pageflags {
 	PG_locked,		/* Page is locked. Don't touch. */
 	PG_error,

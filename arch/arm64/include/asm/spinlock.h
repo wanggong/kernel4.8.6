@@ -82,6 +82,22 @@ static inline void arch_spin_unlock_wait(arch_spinlock_t *lock)
 
 #define arch_spin_lock_flags(lock, flags) arch_spin_lock(lock)
 
+/*
+之前的理解是spinlock会锁住cpu在当前线程，原地打转或者进入standby模式，但
+在进入standby模式时，实际上是可以进行进程调度的，见DHT0008A_arm_synchronization_primitives.pdf
+第14页：
+In an operating system, the scheduler is often invoked by an exception handler based on
+an interrupt triggering. When you execute WFE in such an environment, this can put your
+processor into low-power state for the remainder of its execution slot. When the timer
+interrupt triggers, the scheduler is invoked and performs a context switch. The next time
+the process is scheduled to run, it can retry to acquire the resource, and go back to WFE
+if it fails.
+
+如果使用spinlock与中断进行同步的话，则必须要disable中断，因为如果当前线程获取了spinlock，而这时中断
+到来，中断也要获取spinlock的话，就会死锁，因为当前线程是被中断打断的，其他cpu也无法执行被中断打断的
+代码，所以spinlock就无法释放，中断程序也就拿不到spinlock。
+
+*/
 static inline void arch_spin_lock(arch_spinlock_t *lock)
 {
 	unsigned int tmp;

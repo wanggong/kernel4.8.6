@@ -100,6 +100,7 @@ static void *__dma_alloc_coherent(struct device *dev, size_t size,
 
 	if (IS_ENABLED(CONFIG_ZONE_DMA) &&
 	    dev->coherent_dma_mask <= DMA_BIT_MASK(32))
+//dma_malloc不一定全部从dma zone申请，
 		flags |= GFP_DMA;
 	if (dev_get_cma_area(dev) && gfpflags_allow_blocking(flags)) {
 		struct page *page;
@@ -350,6 +351,21 @@ static int __swiotlb_dma_supported(struct device *hwdev, u64 mask)
 		return swiotlb_dma_supported(hwdev, mask);
 	return 1;
 }
+
+/*
+Software Input Output Translation Lookaside Buffer is an Intel technology which 
+sort of bypasses the IOMMU and allows for a much more configurable memory 
+management interface. Without going into the deep complexity of how this works, 
+page tables are cached in the Lookaside Buffer reducing the need to constantly 
+access physical RAM to map memory. This technology is also referred to as a 
+bounce buffer as the physical address of the memory map is held in this virtual 
+space of and IO is bounced between the physical IO and the Physical memory by 
+this virtual lookaside buffer.
+
+This allows the memory mapping to be carried out quickly and have a physical 
+memory space available for use much faster than if it had to be created 
+physically in RAM and presented to the system as usable.
+*/
 
 static struct dma_map_ops swiotlb_dma_ops = {
 	.alloc = __dma_alloc,

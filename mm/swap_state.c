@@ -49,6 +49,7 @@ static struct {
 	unsigned long find_total;
 } swap_cache_info;
 
+//目前没有使用，1861上是0，其他的也应该是一样
 unsigned long total_swapcache_pages(void)
 {
 	int i;

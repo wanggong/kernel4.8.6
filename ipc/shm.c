@@ -430,6 +430,8 @@ static int shm_mmap(struct file *file, struct vm_area_struct *vma)
 #ifdef CONFIG_MMU
 	WARN_ON(!sfd->vm_ops->fault);
 #endif
+//这里设置vma的ops，当vma释放时，close会被调用，这样当应用程序出错退出时，
+//分配的资源得以清理，这是个好办法。
 	vma->vm_ops = &shm_vm_ops;
 	return 0;
 }
@@ -651,6 +653,13 @@ static inline int shm_more_checks(struct kern_ipc_perm *ipcp,
 	return 0;
 }
 
+//在使用shmget时，存在资源泄露问题，当程序由于bug崩溃时，shmctl(shmid, IPC_RMID, 0)可能
+//没有被调用到，这时就存在shmget分配的资源无法释放的问题。
+//因为shmget分配的资源并没有绑定到具体的进程上，所以操作系统无法在程序崩溃时释放
+//此资源。
+
+//但是后面使用shmat分配的资源是不会泄露的，因为这些会和 vma_struct 绑定，当app crash时是
+//有机会被通知到的。
 SYSCALL_DEFINE3(shmget, key_t, key, size_t, size, int, shmflg)
 {
 	struct ipc_namespace *ns;
@@ -1085,6 +1094,13 @@ out_unlock1:
  * "raddr" thing points to kernel space, and there has to be a wrapper around
  * this.
  */
+
+/*************************************************************************
+如果程序崩溃的话，这里分配的资源是能正常释放的，释放的路径是：
+do_munmap->remove_vma_list->remove_vma->
+1. ----->vma->vm_ops->close(vma)
+2.------>fput(vma->vm_file)
+*************************************************************************/
 long do_shmat(int shmid, char __user *shmaddr, int shmflg, ulong *raddr,
 	      unsigned long shmlba)
 {

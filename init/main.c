@@ -476,6 +476,11 @@ static void __init mm_init(void)
 	ioremap_huge_init();
 }
 
+//运行到这里的状态，
+//sp_el1（即sp）指向initial_sp
+//sp_el0,指向thread_info
+//ttbr0_el1指向idmap_pg_dir
+//ttbr1_el1指向swapper_pg_dir
 asmlinkage __visible void __init start_kernel(void)
 {
 	char *command_line;

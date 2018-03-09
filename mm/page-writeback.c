@@ -2469,7 +2469,7 @@ int generic_writepages(struct address_space *mapping,
 }
 
 EXPORT_SYMBOL(generic_writepages);
-//调用mapping->a_ops->writepages或mapping->a_ops->writepages写pages，返回写的page的个数
+//调用 mapping->a_ops->writepages 或 mapping->a_ops->writepages 写pages，返回写的page的个数
 int do_writepages(struct address_space *mapping, struct writeback_control *wbc)
 {
 	int ret;

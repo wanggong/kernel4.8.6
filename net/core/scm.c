@@ -97,7 +97,7 @@ static int scm_fp_copy(struct cmsghdr *cmsg, struct scm_fp_list **fplp)
 	/*
 	 *	Verify the descriptors and increment the usage count.
 	 */
-
+//将fd转换成file的指针
 	for (i=0; i< num; i++)
 	{
 		int fd = fdp[i];

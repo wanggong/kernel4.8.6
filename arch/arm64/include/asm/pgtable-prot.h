@@ -26,7 +26,10 @@
  */
 #define PTE_VALID		(_AT(pteval_t, 1) << 0)
 #define PTE_WRITE		(PTE_DBM)		 /* same as DBM (51) */
+//55位硬件没有使用，所以给软件用作了dirty
 #define PTE_DIRTY		(_AT(pteval_t, 1) << 55)
+//在第一次page_fault是读时会用，是否还有其他用？
+//56位在armv8中是保留的，所以这里肯定只是软件识别用的
 #define PTE_SPECIAL		(_AT(pteval_t, 1) << 56)
 #define PTE_PROT_NONE		(_AT(pteval_t, 1) << 58) /* only when !PTE_VALID */
 
@@ -49,6 +52,7 @@
 
 #define _PAGE_DEFAULT		(PROT_DEFAULT | PTE_ATTRINDX(MT_NORMAL))
 
+//vmalloc使用此标志
 #define PAGE_KERNEL		__pgprot(_PAGE_DEFAULT | PTE_PXN | PTE_UXN | PTE_DIRTY | PTE_WRITE)
 #define PAGE_KERNEL_RO		__pgprot(_PAGE_DEFAULT | PTE_PXN | PTE_UXN | PTE_DIRTY | PTE_RDONLY)
 #define PAGE_KERNEL_ROX		__pgprot(_PAGE_DEFAULT | PTE_UXN | PTE_DIRTY | PTE_RDONLY)

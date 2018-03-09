@@ -13,6 +13,7 @@
 #define INIT_MM_CONTEXT(name)
 #endif
 
+//kernelµÄmm
 struct mm_struct init_mm = {
 	.mm_rb		= RB_ROOT,
 	.pgd		= swapper_pg_dir,

@@ -2606,6 +2606,8 @@ void yield(void);
 
 union thread_union {
 	struct thread_info thread_info;
+//注意此数据结构是union的，所以总大小是16k，实际使用时，前面部分是thread_info，
+//后面是stack
 	unsigned long stack[THREAD_SIZE/sizeof(long)];
 };
 
@@ -2618,7 +2620,7 @@ static inline int kstack_end(void *addr)
 	return !(((unsigned long)addr+sizeof(void*)-1) & (THREAD_SIZE-sizeof(void*)));
 }
 #endif
-
+//第一个线程的堆栈
 extern union thread_union init_thread_union;
 extern struct task_struct init_task;
 

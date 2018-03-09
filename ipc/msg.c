@@ -238,6 +238,7 @@ static inline int msg_security(struct kern_ipc_perm *ipcp, int msgflg)
 	return security_msg_queue_associate(msq, msgflg);
 }
 
+////在使用shmget时，存在资源泄露问题，详见 shm.c （shmget）的注释，他们是同样的原因。
 SYSCALL_DEFINE2(msgget, key_t, key, int, msgflg)
 {
 	struct ipc_namespace *ns;
@@ -719,6 +720,9 @@ out_unlock1:
 	return err;
 }
 
+
+//存在资源泄露（还有内存泄漏）问题，当发送消息之后，消息被拷贝到内存，如果没有程序来读取，
+//这些消息会一直存在，当发送消息的程序退出后，这些资源也无法被释放。
 SYSCALL_DEFINE4(msgsnd, int, msqid, struct msgbuf __user *, msgp, size_t, msgsz,
 		int, msgflg)
 {

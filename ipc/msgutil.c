@@ -81,6 +81,7 @@ out_err:
 	return NULL;
 }
 
+//分配一个msg_msg，并将src的内容拷贝到msg_msg中
 struct msg_msg *load_msg(const void __user *src, size_t len)
 {
 	struct msg_msg *msg;

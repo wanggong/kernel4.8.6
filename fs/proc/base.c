@@ -573,6 +573,7 @@ static const struct file_operations proc_lstats_operations = {
 
 #endif
 
+//可以理解oom_score就是当前进程占用内存的千分比
 static int proc_oom_score(struct seq_file *m, struct pid_namespace *ns,
 			  struct pid *pid, struct task_struct *task)
 {
@@ -1034,6 +1035,21 @@ static ssize_t oom_adj_read(struct file *file, char __user *buf, size_t count,
 	return simple_read_from_buffer(buf, count, ppos, buffer, len);
 }
 
+/*
+oom在proc中有三个参数，分别是:
+1. oom_score_adj,这个参数用于调整adj的值，范围时（-1000，1000），这个值表示的是内存调整的千分比，
+	在计算oom_score时加到当前进程实际占用的内存上，计算公式是：rss+oom_score_adj*(totalpages/1000),
+	可以看出如果oom_score_adj==1000，即使当前进程没有占用任何内存，计算的结果也是totalpages，这种进程
+	的score将会是1000，将会被杀掉，如果oom_score_adj==-1000，即使当前进程占用了所有的物理内存，计算结果
+	也不会大于0，就不会被杀掉。
+2. oom_adj，效果同oom_score_adj，是比较早使用的，现在已废弃，范围时(-17,16)
+3. oom_score，当前进程计算得分，算法是第一步计算的结果除以totalpages在乘以1000，及内存的千分比
+	进行简化之后如下：
+	[rss+oom_score_adj*(totalpages/1000)]/totalpages*1000 = rss/totalpages*1000+oom_score_adj,
+	既是进程所占的内存的千分比+oom_score_adj
+
+	在android中，前台进程的oom_score_adj是0，后台进程的是900，后台服务进程是-1000
+*/
 static int __set_oom_adj(struct file *file, int oom_adj, bool legacy)
 {
 	static DEFINE_MUTEX(oom_adj_mutex);
@@ -2823,6 +2839,7 @@ static const struct pid_entry tgid_base_stuff[] = {
 #endif
 	REG("environ",    S_IRUSR, proc_environ_operations),
 	ONE("auxv",       S_IRUSR, proc_pid_auxv),
+	//查看进程的状态，包括内存、调度、权限等
 	ONE("status",     S_IRUGO, proc_pid_status),
 	ONE("personality", S_IRUSR, proc_pid_personality),
 	ONE("limits",	  S_IRUGO, proc_pid_limits),
@@ -2838,6 +2855,8 @@ static const struct pid_entry tgid_base_stuff[] = {
 #endif
 	REG("cmdline",    S_IRUGO, proc_pid_cmdline_ops),
 	ONE("stat",       S_IRUGO, proc_tgid_stat),
+//显示内存占用的情况，格式是vss rss ...
+//这个远没有status看得清楚，请使用status
 	ONE("statm",      S_IRUGO, proc_pid_statm),
 	REG("maps",       S_IRUGO, proc_pid_maps_operations),
 #ifdef CONFIG_NUMA
@@ -2853,6 +2872,8 @@ static const struct pid_entry tgid_base_stuff[] = {
 #ifdef CONFIG_PROC_PAGE_MONITOR
 	REG("clear_refs", S_IWUSR, proc_clear_refs_operations),
 	REG("smaps",      S_IRUGO, proc_pid_smaps_operations),
+	
+ //遍历整个内存空间，生成 pagemap ， pagemap是反映虚拟地址和物理地址的联系	
 	REG("pagemap",    S_IRUSR, proc_pagemap_operations),
 #endif
 #ifdef CONFIG_SECURITY

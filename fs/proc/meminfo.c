@@ -39,7 +39,9 @@ static int meminfo_proc_show(struct seq_file *m, void *v)
 	si_meminfo(&i);
 	si_swapinfo(&i);
 	committed = percpu_counter_read_positive(&vm_committed_as);
-
+//这里注意：swap的值是0，buffer和cache都是通过NR_FILE_PAGES计数的，buffer的是
+//blk模块的，cache属于block之上的，他们都是通过inode->mapping管理的，buffer和
+//cache加起来是 NR_FILE_PAGES
 	cached = global_node_page_state(NR_FILE_PAGES) -
 			total_swapcache_pages() - i.bufferram;
 	if (cached < 0)

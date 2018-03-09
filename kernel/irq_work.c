@@ -168,7 +168,7 @@ static void irq_work_run_list(struct llist_head *list)
  * hotplug calls this through:
  *  hotplug_cfd() -> flush_smp_call_function_queue()
  */
- //当有pmu的中断时，被armv8pmu_handle_irq调用
+ //当有pmu的中断时，被armv8 pmu_handle_irq调用
 void irq_work_run(void)
 {
 	irq_work_run_list(this_cpu_ptr(&raised_list));

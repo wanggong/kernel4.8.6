@@ -47,6 +47,7 @@ struct files_struct {
   /*
    * read mostly part
    */
+   //多个进程（线程）共享时会增加此引用计数
 	atomic_t count;
 	bool resize_in_progress;
 	wait_queue_head_t resize_wait;

@@ -121,6 +121,7 @@ EXPORT_SYMBOL_GPL(nr_irqs);
 static DEFINE_MUTEX(sparse_irq_lock);
 static DECLARE_BITMAP(allocated_irqs, IRQ_BITMAP_BITS);
 
+//在8909的系统中，这个是定义了的，所以以后使用的系统可能都会定义这个
 #ifdef CONFIG_SPARSE_IRQ
 
 static RADIX_TREE(irq_desc_tree, GFP_KERNEL);
@@ -487,6 +488,10 @@ EXPORT_SYMBOL_GPL(irq_free_descs);
  *
  * Returns the first irq number or error code
  */
+
+//irq是连续的，通过连续的一些bit控制是否空闲，这个函数是申请连续的cnt个irq，
+//从from开始查找，如果irq大于零的话，irq就是这cnt个中断的起始，否则随意分配
+//起始位置
 int __ref
 __irq_alloc_descs(int irq, unsigned int from, unsigned int cnt, int node,
 		  struct module *owner, const struct cpumask *affinity)

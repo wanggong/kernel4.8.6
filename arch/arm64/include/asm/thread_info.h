@@ -79,7 +79,7 @@ static inline struct thread_info *current_thread_info(void) __attribute_const__;
 static inline struct thread_info *current_thread_info(void)
 {
 	unsigned long sp_el0;
-
+//在kernel中sp_el0是不使用的，所以在进入kernel时会将此寄存器保存起来，然后用来保存thread_info
 	asm ("mrs %0, sp_el0" : "=r" (sp_el0));
 
 	return (struct thread_info *)sp_el0;

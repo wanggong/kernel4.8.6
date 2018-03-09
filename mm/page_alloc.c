@@ -253,7 +253,9 @@ int user_min_free_kbytes = -1;
 //设置在/proc/sys/vm/watermark_scale_factor
 int watermark_scale_factor = 10;
 
+//kernel能访问的page的数量
 static unsigned long __meminitdata nr_kernel_pages;
+//所有page的数量
 static unsigned long __meminitdata nr_all_pages;
 static unsigned long __meminitdata dma_reserve;
 
@@ -1204,6 +1206,7 @@ static inline void init_reserved_page(unsigned long pfn)
  * marks the pages PageReserved. The remaining valid pages are later
  * sent to the buddy page allocator.
  */
+ //将(start,end)的pages设置为reserved
 void __meminit reserve_bootmem_region(phys_addr_t start, phys_addr_t end)
 {
 	unsigned long start_pfn = PFN_DOWN(start);
@@ -3877,6 +3880,7 @@ unsigned long get_zeroed_page(gfp_t gfp_mask)
 }
 EXPORT_SYMBOL(get_zeroed_page);
 
+//释放1<<order个page
 void __free_pages(struct page *page, unsigned int order)
 {
 	if (put_page_testzero(page)) {
@@ -4137,6 +4141,7 @@ static inline void show_node(struct zone *zone)
 }
 //预估能使用的内存的大小，仅仅是毛估一下
 //有啥用?
+//计算方式：(NR_FREE_PAGES-totalreserve_pages)+(LRU_ACTIVE_FILE+LRU_INACTIVE_FILE-wmark_low)+(NR_SLAB_RECLAIMABLE-wmark_low)
 long si_mem_available(void)
 {
 	long available;
@@ -4478,7 +4483,9 @@ void show_free_areas(unsigned int filter)
 
 static void zoneref_set_zone(struct zone *zone, struct zoneref *zoneref)
 {
+//指向的具体的zone
 	zoneref->zone = zone;
+//上面指向的zone在其所在node中的index
 	zoneref->zone_idx = zone_idx(zone);
 }
 
@@ -4875,6 +4882,8 @@ static void build_zonelists(pg_data_t *pgdat)
 	 * zones coming right after the local ones are those from
 	 * node N+1 (modulo N)
 	 */
+//将其他node的zone添加到zonelist中，因为我们只考虑uma，所以没有其他的node，所以后面
+//的代码是不会走的。
 	for (node = local_node + 1; node < MAX_NUMNODES; node++) {
 		if (!node_online(node))
 			continue;
@@ -4918,6 +4927,8 @@ static void setup_zone_pageset(struct zone *zone);
 DEFINE_MUTEX(zonelists_mutex);
 
 /* return values int ....just for stop_machine() */
+
+//设置各个node的zonelist
 static int __build_all_zonelists(void *data)
 {
 	int nid;
@@ -4971,6 +4982,7 @@ static int __build_all_zonelists(void *data)
 	return 0;
 }
 
+//设置各个node的zonelist
 static noinline void __init
 build_all_zonelists_init(void)
 {
@@ -5373,7 +5385,7 @@ void __init setup_per_cpu_pageset(void)
 }
 //初始化zone的waittable
 //每个page本来都应该有一个wait_queue的，但是如果这么做的话会导致暂用大量内存，所以这里
-//做了一些优化以节省空间，使多个page共享一个wait_queue，具体见zone->wait_table
+//做了一些优化以节省空间，使多个page共享一个wait_queue，具体见 zone->wait_table
 //的英文注释。
 static noinline __ref
 int zone_wait_table_init(struct zone *zone, unsigned long zone_size_pages)
@@ -5816,6 +5828,7 @@ static void __meminit calculate_node_totalpages(struct pglist_data *pgdat,
  * round what is now in bits to nearest long in bits, then return it in
  * bytes.
  */
+ //计算 zone->blockflags 需要的空间的大小
 static unsigned long __init usemap_size(unsigned long zone_start_pfn, unsigned long zonesize)
 {
 	unsigned long usemapsize;
@@ -6605,6 +6618,9 @@ void free_highmem_page(struct page *page)
 #endif
 
 //打印memory的情况
+//1881打印情况如下
+//Memory: 2772428K/2947072K available (10748K kernel code, 1253K rwdata, 
+//3396K rodata, 2688K init, 15423K bss, 174644K reserved, 0K cma-reserved)
 void __init mem_init_print_info(const char *str)
 {
 	unsigned long physpages, codesize, datasize, rosize, bss_size;

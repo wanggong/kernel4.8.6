@@ -162,11 +162,11 @@ struct irq_domain {
 #endif
 
 	/* reverse map data. The linear map gets appended to the irq_domain */
-	irq_hw_number_t hwirq_max;
+	irq_hw_number_t hwirq_max;//保存了最大的HW interrupt ID
 	unsigned int revmap_direct_max_irq;
-	unsigned int revmap_size;
-	struct radix_tree_root revmap_tree;
-	unsigned int linear_revmap[];
+	unsigned int revmap_size;//等于线性的lookup table的size。
+	struct radix_tree_root revmap_tree;//指向Radix tree的root node。
+	unsigned int linear_revmap[];	//保存了一个线性的lookup table，index是HW interrupt ID，table中保存了IRQ number值
 };
 
 /* Irq domain flags */
@@ -260,6 +260,7 @@ static inline struct irq_domain *irq_find_host(struct device_node *node)
  * @ops: map/unmap domain callbacks
  * @host_data: Controller private data pointer
  */
+//添加irq domain
 static inline struct irq_domain *irq_domain_add_linear(struct device_node *of_node,
 					 unsigned int size,
 					 const struct irq_domain_ops *ops,

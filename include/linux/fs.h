@@ -439,7 +439,7 @@ struct address_space {
 // <0 已经做了denywrite的map了，不能再做writeable的map了
 	atomic_t		i_mmap_writable;/* count VM_SHARED mappings */
 //链接和此mapping相关的vma,不同进程的vma都会链接到这里
-//注意:vm_area_struct是属于进程的，而address_space是属于某个文件的，有kernel管理，不属于任何进程
+//注意:vm_area_struct是属于进程的，而address_space是属于某个文件的，由kernel管理，不属于任何进程
 	struct rb_root		i_mmap;		/* tree of private and shared mappings */
 	struct rw_semaphore	i_mmap_rwsem;	/* protect tree, count, list */
 	/* Protected by tree_lock together with the radix tree */
@@ -447,8 +447,8 @@ struct address_space {
 	unsigned long		nrpages;	/* number of total pages */
 	/* number of shadow or DAX exceptional entries */
 	unsigned long		nrexceptional;
-//表示下一个writeback的index，具体使用见write_cache_pages
-//有时候我们写入时为了回收内存，这种情况下我们就可以不指定具体写入
+//表示下一个writeback的index，具体使用见 write_cache_pages
+//有时候我们写入是为了回收内存，这种情况下我们就可以不指定具体写入
 //的开始位置，这时候就可以使用这个变量，跟随上次写入的后面的地址继续写入，
 //这样至少有一个好处是这些块和之前写入的块有可能能合并
 	pgoff_t			writeback_index;/* writeback starts here */
@@ -645,6 +645,7 @@ struct inode {
 		unsigned int __i_nlink;
 	};
 	dev_t			i_rdev;
+	//文件或共享内存的大小
 	loff_t			i_size;
 	struct timespec		i_atime;
 	struct timespec		i_mtime;
@@ -676,9 +677,11 @@ struct inode {
 	u16			i_wb_frn_history;
 #endif
 	struct list_head	i_lru;		/* inode LRU list */
+//链接到super_block->s_inodes
 	struct list_head	i_sb_list;
 	struct list_head	i_wb_list;	/* backing dev writeback list */
 	union {
+		//所有指向此inode的dentry的链表
 		struct hlist_head	i_dentry;
 		struct rcu_head		i_rcu;
 	};
@@ -898,6 +901,7 @@ struct file {
 		struct llist_node	fu_llist;
 		struct rcu_head 	fu_rcuhead;
 	} f_u;
+	//file指向的dentry，即path
 	struct path		f_path;
 	struct inode		*f_inode;	/* cached value */
 	const struct file_operations	*f_op;
@@ -907,6 +911,7 @@ struct file {
 	 * Must not be taken from IRQ context.
 	 */
 	spinlock_t		f_lock;
+	//当多个进程（线程）共享时增加此引用计数
 	atomic_long_t		f_count;
 	unsigned int 		f_flags;
 	fmode_t			f_mode;
@@ -928,6 +933,7 @@ struct file {
 	struct list_head	f_ep_links;
 	struct list_head	f_tfile_llink;
 #endif /* #ifdef CONFIG_EPOLL */
+//指向的是inode->i_mapping
 	struct address_space	*f_mapping;
 } __attribute__((aligned(4)));	/* lest something weird decides that 2 is OK */
 
@@ -1403,6 +1409,7 @@ struct super_block {
 	 * generic_show_options()
 	 */
 	char __rcu *s_options;
+	//dentry的操作函数
 	const struct dentry_operations *s_d_op; /* default d_op for dentries */
 
 	/*
@@ -1447,6 +1454,7 @@ struct super_block {
 
 	/* s_inode_list_lock protects s_inodes */
 	spinlock_t		s_inode_list_lock ____cacheline_aligned_in_smp;
+	//属于本super_block的所有的node，通过inode->i_sb_list链接过来
 	struct list_head	s_inodes;	/* all inodes */
 
 	spinlock_t		s_inode_wblist_lock;

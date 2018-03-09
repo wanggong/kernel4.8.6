@@ -238,6 +238,7 @@ static int __die(const char *str, int err, struct thread_info *thread,
 		 str, err, ++die_counter);
 
 	/* trap and error numbers are mostly meaningless on ARM */
+	//通知其他模块，在lc1881上，此处通知会将其他cpu stop，最终引发watchdog
 	ret = notify_die(DIE_OOPS, str, regs, err, 0, SIGSEGV);
 	if (ret == NOTIFY_STOP)
 		return ret;
@@ -281,9 +282,10 @@ void die(const char *str, struct pt_regs *regs, int err)
 	add_taint(TAINT_DIE, LOCKDEP_NOW_UNRELIABLE);
 	raw_spin_unlock_irq(&die_lock);
 	oops_exit();
-
+//在中断中的话就直接panic，
 	if (in_interrupt())
 		panic("Fatal exception in interrupt");
+//如果不是在中断中，要看此值的设置了，如果设置就panic，否则不panic
 	if (panic_on_oops)
 		panic("Fatal exception");
 	if (ret != NOTIFY_STOP)
@@ -562,6 +564,8 @@ const char *esr_get_class_string(u32 esr)
 /*
  * bad_mode handles the impossible case in the exception vector.
  */
+ //带invalid后缀的向量都是Linux做未做进一步处理的向量，默认都会进入bad_mode()流程，
+ //说明这类异常Linux内核无法处理，只能上报给用户进程(用户态，sigkill或sigbus信号)或die(内核态)
 asmlinkage void bad_mode(struct pt_regs *regs, int reason, unsigned int esr)
 {
 	siginfo_t info;

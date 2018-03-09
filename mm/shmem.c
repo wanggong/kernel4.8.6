@@ -193,6 +193,7 @@ static struct file_system_type shmem_fs_type;
 static LIST_HEAD(shmem_swaplist);
 static DEFINE_MUTEX(shmem_swaplist_mutex);
 
+//inode的个数可以是有限的，减少一个
 static int shmem_reserve_inode(struct super_block *sb)
 {
 	struct shmem_sb_info *sbinfo = SHMEM_SB(sb);

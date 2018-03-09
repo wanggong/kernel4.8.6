@@ -581,7 +581,8 @@ int proc_tgid_stat(struct seq_file *m, struct pid_namespace *ns,
 {
 	return do_task_stat(m, ns, pid, task, 1);
 }
-
+//statm的内容，单位是page
+//ps pid显示的vsize和rss就是从这里取的
 int proc_pid_statm(struct seq_file *m, struct pid_namespace *ns,
 			struct pid *pid, struct task_struct *task)
 {

@@ -17,11 +17,13 @@
  * priority to a value higher than any user task. Note:
  * MAX_RT_PRIO must not be smaller than MAX_USER_RT_PRIO.
  */
-
+//数值越大，优先级越低，0-100是实时进程，1001-139是普通进程
 #define MAX_USER_RT_PRIO	100
 #define MAX_RT_PRIO		MAX_USER_RT_PRIO
 
+//优先级的最大值
 #define MAX_PRIO		(MAX_RT_PRIO + NICE_WIDTH)
+//优先级的中值，=120
 #define DEFAULT_PRIO		(MAX_RT_PRIO + NICE_WIDTH / 2)
 
 /*

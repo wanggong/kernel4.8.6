@@ -34,11 +34,14 @@ typedef int ion_user_handle_t;
  *				 is used to identify the heaps, so only 32
  *				 total heap types are supported
  */
+//不同的heap的种类
 enum ion_heap_type {
+//一般的分配，没有标志的就是用这个了
 	ION_HEAP_TYPE_SYSTEM,
 	ION_HEAP_TYPE_SYSTEM_CONTIG,
 	ION_HEAP_TYPE_CARVEOUT,
 	ION_HEAP_TYPE_CHUNK,
+//会使用cma分配连续的物理内存
 	ION_HEAP_TYPE_DMA,
 	ION_HEAP_TYPE_CUSTOM, /*
 			       * must be last so device specific heaps always

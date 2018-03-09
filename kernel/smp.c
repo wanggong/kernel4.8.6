@@ -174,6 +174,7 @@ static int generic_exec_single(int cpu, struct call_single_data *csd,
  * Invoked by arch to handle an IPI for call function single.
  * Must be called with interrupts disabled.
  */
+ //处理其他cpu传过来的需要本cpu处理的func
 void generic_smp_call_function_single_interrupt(void)
 {
 	flush_smp_call_function_queue(true);
@@ -252,6 +253,48 @@ static void flush_smp_call_function_queue(bool warn_cpu_offline)
  *
  * Returns 0 on success, else a negative status code.
  */
+//如注释，将func在对应的cpu上运行
+
+/*
+一个使用实例
+kernel/events/core.c:
+static u64 perf_event_read(struct perf_event *event)
+{
+
+if (event->state == PERF_EVENT_STATE_ACTIVE) {
+smp_call_function_single(event->oncpu,
+__perf_event_read, event, 1);
+}
+}
+  
+perf_event_read用于读取一个event的pmu hw counter的值，event subsystem在Linux kernel中的实现还比较复杂，
+并不单纯如pmu的读写那样简单。函数中的第一个if语句是说如果该event处于active状态，那么读取其在pmu中对应
+hw counter 寄存器的值。因为event的实现分为task context和cpu context两大类，简言之是在一个task运行的
+life cycle还是一个cpu lifecycle中对相关的pmu hw counter计数。回到perf_event_read函数，如果我们发现该
+event目前在某一cpu上属于active状态，那么就进入if语句块中。有意思的是，当我们正在看的这段代码正在运行
+时，要读的该event并不一定是在当前的cpu上，那怎么办呢？所以要实现一个所谓的cross cpu function call,也
+即上述代码片段中smp_call_function_single函数的实现，在UP系统中，可以肯定当前代码运行的CPU就是event所
+在的cpu，所以可以直接调用__perf_event_read函数，这也是UP系统下smp_call_function_single函数的实现原理。
+有意思的是SMP系统下smp_call_function_single函数的实现：首先我们要知道当前代码正在上面运行的该CPU的ID
+（由smp_processor_id()获得），假设4-cpu系统，当前代码正在cpu1上运行，那么调用smp_processor_id返回1，
+这背后的原理是APIC和per-cpu实现机制的合成。要读取的event有一个成员变量event->oncpu用来指明该event是绑
+定在哪个cpu上，如果event->oncpu=1，表明执行当前代码的cpu就是event所在的cpu，那么很简单了，直接调用
+__perf_event_read就可以了。如果event->oncpu!=1，那么要读取的event不在当前的cpu上，如何操控别的cpu来
+读取pmu中寄存器的值（每个cpu都有自己对应的pmu)，原理其实很简单：IPI (Inter Processor Interrupt)，就
+是通过local APIC给别的处理器发一个中断消息。但是具体的实现要考虑的东西可能比较多并且全面一点，表现在
+实际的代码上就不是太直白（直白的实现就是send_ipi这样的函数了）。在Linux内核中，每个cpu都有一个对应的
+csd_data的变量（很明显是一个per-cpu类型的）：
+kernel/smp.c:
+static DEFINE_PER_CPU_SHARED_ALIGNED(struct call_single_data, csd_data); // csd means call single data
+
+同时，系统中每个cpu都还拥有各自的一个类型为struct call_single_queue的队列dst（list)，smp_call_function_single（）
+会根据目标cpu来获得该队列，把前述的csd作为跨cpu参数传递的方法（我怎么觉得获得csd指针最好是用类似__get_cpu_var(csd_data, cpu)
+这样的方式呢，但是代码中在!wait处使用__get_cpu_var(csd_data)。。。）。不管怎么说吧，跨cpu调用的参数传
+递方法是用了，然后如果队列dst为空，就调用arch_send_call_function_single_ipi(cpu)给参数所指定的cpu发
+ipi消息，目标cpu收到该消息进入中断处理函数，那么就调用csd_data->func函数了(其实应该是ipi的中断处理函
+数处理dst队列中的每个结点，调用每个结点上的func函数指针，所以队列不为空时就没必要再发ipi消息了。
+*/
+
 int smp_call_function_single(int cpu, smp_call_func_t func, void *info,
 			     int wait)
 {

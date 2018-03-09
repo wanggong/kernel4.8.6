@@ -68,6 +68,7 @@ void ion_heap_unmap_kernel(struct ion_heap *heap,
 	vunmap(buffer->vaddr);
 }
 
+//将buffer map到vma所指向的user空间中
 int ion_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 		      struct vm_area_struct *vma)
 {

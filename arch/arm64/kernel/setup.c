@@ -194,6 +194,7 @@ static void __init setup_machine_fdt(phys_addr_t dt_phys)
 	dump_stack_set_arch_desc("%s (DT)", of_flat_dt_get_machine_name());
 }
 
+//为每个memblock建立resource数据结构
 static void __init request_standard_resources(void)
 {
 	struct memblock_region *region;

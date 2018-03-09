@@ -28,10 +28,17 @@
 #define B_TYPE_LARGE 0x85
 
 enum {
+//binder有两种表示方法，一种是bindler，另一种是handle，如果是进程内的话，直接使用binder就可以，如果是
+//跨进程的话，需要将node安装到对应的进程中，然后使用handle传递
 	BINDER_TYPE_BINDER	= B_PACK_CHARS('s', 'b', '*', B_TYPE_LARGE),
 	BINDER_TYPE_WEAK_BINDER	= B_PACK_CHARS('w', 'b', '*', B_TYPE_LARGE),
 	BINDER_TYPE_HANDLE	= B_PACK_CHARS('s', 'h', '*', B_TYPE_LARGE),
 	BINDER_TYPE_WEAK_HANDLE	= B_PACK_CHARS('w', 'h', '*', B_TYPE_LARGE),
+	/**************************************************************************
+	BINDER_TYPE_FD 的处理过程如下：
+	由于binder ipc是知道要将消息发给哪个进程的，所以在传送开始的时候，先从当前进程的fd获取到file，
+	然后从要接受此消息的进程分配一个fd，然后将file安装到此分配的fd上，然后将此分配的fd传给接收者。
+	**************************************************************************/
 	BINDER_TYPE_FD		= B_PACK_CHARS('f', 'd', '*', B_TYPE_LARGE),
 };
 
@@ -138,6 +145,7 @@ struct binder_transaction_data {
 		binder_uintptr_t ptr;
 	} target;
 	binder_uintptr_t	cookie;	/* target object cookie */
+	//需要service执行的命令
 	__u32		code;		/* transaction command */
 
 	/* General information about the transaction. */

@@ -45,6 +45,7 @@ struct subsys_private {
 
 struct driver_private {
 	struct kobject kobj;
+	//一个driver可以有多个devices
 	struct klist klist_devices;
 	struct klist_node knode_bus;
 	struct module_kobject *mkobj;

@@ -791,6 +791,7 @@ struct device {
 					 */
 
 	struct bus_type	*bus;		/* type of bus device is on */
+	//一个device只能有一个driver
 	struct device_driver *driver;	/* which driver has allocated this
 					   device */
 	void		*platform_data;	/* Platform specific data, device

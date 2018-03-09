@@ -441,7 +441,7 @@ static inline void dma_free_attrs(struct device *dev, size_t size,
 	debug_dma_free_coherent(dev, size, cpu_addr, dma_handle);
 	ops->free(dev, size, cpu_addr, dma_handle, attrs);
 }
-
+//分配一致性内存
 static inline void *dma_alloc_coherent(struct device *dev, size_t size,
 		dma_addr_t *dma_handle, gfp_t flag)
 {

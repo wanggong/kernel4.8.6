@@ -724,7 +724,7 @@ static void check_stack_usage(void)
 #else
 static inline void check_stack_usage(void) {}
 #endif
-//进程退出，如果是因为信号导致的退出也会走这里
+//进程(或线程 )退出，如果是因为信号导致的退出也会走这里
 void do_exit(long code)
 {
 	struct task_struct *tsk = current;

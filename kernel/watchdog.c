@@ -90,13 +90,16 @@ static int __read_mostly watchdog_running;
  */
 static int __read_mostly watchdog_suspended;
 
+//单位ns，默认是4s
 static u64 __read_mostly sample_period;
 
+//在watchdog线程中更新
 static DEFINE_PER_CPU(unsigned long, watchdog_touch_ts);
 static DEFINE_PER_CPU(struct task_struct *, softlockup_watchdog);
 static DEFINE_PER_CPU(struct hrtimer, watchdog_hrtimer);
 static DEFINE_PER_CPU(bool, softlockup_touch_sync);
 static DEFINE_PER_CPU(bool, soft_watchdog_warn);
+//中断定时器调用的次数，即计数
 static DEFINE_PER_CPU(unsigned long, hrtimer_interrupts);
 static DEFINE_PER_CPU(unsigned long, soft_lockup_hrtimer_cnt);
 static DEFINE_PER_CPU(struct task_struct *, softlockup_task_ptr_saved);
@@ -301,6 +304,7 @@ static bool is_hardlockup(void)
 }
 #endif
 
+//返回当前时刻是否已经超过了“看门狗”的到期时间：
 static int is_softlockup(unsigned long touch_ts)
 {
 	unsigned long now = get_timestamp();
@@ -396,6 +400,13 @@ static enum hrtimer_restart watchdog_timer_fn(struct hrtimer *hrtimer)
 	struct pt_regs *regs = get_irq_regs();
 	int duration;
 	int softlockup_all_cpu_backtrace = sysctl_softlockup_all_cpu_backtrace;
+/*
+	首先获取最后一次的喂狗时间并保存在touch_ts中，然后调用watchdog_interrupt_count()
+	函数累加hrtimer_interrupts值，显然该值表示的是当前cpu触发定时器中断的次数。
+	然后尝试唤醒已经睡眠的喂狗线程（注意，由于这里改变了hrtimer_interrupts值，前文中
+	的watchdog_should_run自然就会返回TRUE了，那么就可以执行注册的主函数了）。接着本函
+	数继续注册下一次的定时器到期时间。
+*/
 
 	/* kick the hardlockup detector */
 	watchdog_interrupt_count();
@@ -406,6 +417,7 @@ static enum hrtimer_restart watchdog_timer_fn(struct hrtimer *hrtimer)
 	/* .. and repeat */
 	hrtimer_forward_now(hrtimer, ns_to_ktime(sample_period));
 
+//这个判断在kgdb的调试中会用到，正常情况下不会进入
 	if (touch_ts == 0) {
 		if (unlikely(__this_cpu_read(softlockup_touch_sync))) {
 			/*
@@ -428,6 +440,7 @@ static enum hrtimer_restart watchdog_timer_fn(struct hrtimer *hrtimer)
 	 * indicate it is getting cpu time.  If it hasn't then
 	 * this is a good indication some task is hogging the cpu
 	 */
+//这里调用is_softlockup()函数返回当前时刻是否已经超过了“看门狗”的到期时间：	 
 	duration = is_softlockup(touch_ts);
 	if (unlikely(duration)) {
 		/*
@@ -439,6 +452,8 @@ static enum hrtimer_restart watchdog_timer_fn(struct hrtimer *hrtimer)
 			return HRTIMER_RESTART;
 
 		/* only warn once */
+//soft_watchdog_warn标识会在已经出现了一次看门狗超时的情况下置位，此处的用意是对于同一个死锁进程，
+//内核只做一次报警动作，如果死锁的进程发生了改变，那该标识会重新设置为false，将可以重新触发报警。		
 		if (__this_cpu_read(soft_watchdog_warn) == true) {
 			/*
 			 * When multiple processes are causing softlockups the
@@ -541,6 +556,7 @@ static void watchdog_cleanup(unsigned int cpu, bool online)
 	watchdog_disable(cpu);
 }
 
+//是任务运行的判断函数，它会判断进程是否需要调用thread_fn指针指向的函数运行
 static int watchdog_should_run(unsigned int cpu)
 {
 	return __this_cpu_read(hrtimer_interrupts) !=
@@ -679,6 +695,17 @@ static void watchdog_nmi_disable(unsigned int cpu)
 static int watchdog_nmi_enable(unsigned int cpu) { return 0; }
 static void watchdog_nmi_disable(unsigned int cpu) { return; }
 #endif /* CONFIG_HARDLOCKUP_DETECTOR */
+/*
+该结构注册了许多的回调函数，先简单了解一下：
+（1）softlockup_watchdog是一个全局的per cpu指针，它用来保存创建任务的进程描述符task_struct结构；
+（2）watchdog_should_run()是任务运行的判断函数，它会判断进程是否需要调用thread_fn指针指向的函数运行；
+（3）watchdog()是任务运行的主函数，该函数实现线程喂狗的动作；
+（4）setup回调函数watchdog_enable会在任务首次启动时调用，该函数会创建高精度定时器，
+	用来激活喂狗任务和监测死锁超时；
+（5）cleanup回调函数用来清除任务，它会关闭定时器；
+（6）最后的park和unpark回调函数用于暂停运行和恢复运行任务。
+（7）thread_comm是任务名字，cpu0是watchdog/0，cpu1是watchdog/1，以此类推。
+*/
 
 static struct smp_hotplug_thread watchdog_threads = {
 	.store			= &softlockup_watchdog,

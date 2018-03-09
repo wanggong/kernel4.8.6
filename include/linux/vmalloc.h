@@ -29,24 +29,41 @@ struct notifier_block;		/* in notifier.h */
 #define IOREMAP_MAX_ORDER	(7 + PAGE_SHIFT)	/* 128 pages */
 #endif
 
+/****************************************************************************
+下面两个数据结构用于管理kernel空间的（VMALLOC_START, VMALLOC_END）的内存虚拟空间，
+vmalloc，iomap分配的地址会在这个地址空间中，
+vm_struct用于管理pages等一些信息
+vmap_area用于链接到rbtree和链表等
+
+这里管理的信息可通过 cat /proc/vmallocinfo 查看
+******************************************************************************/
 struct vm_struct {
 	struct vm_struct	*next;
+	//开始地址
 	void			*addr;
+	//分配内存的大小，包括用于隔离的一个page的空洞
 	unsigned long		size;
 	unsigned long		flags;
+	//分配的pages
 	struct page		**pages;
+	//page的个数
 	unsigned int		nr_pages;
 	phys_addr_t		phys_addr;
+	//调用者的函数指针
 	const void		*caller;
 };
 
 struct vmap_area {
+	//虚拟地址的开始和结束，包括一个page的空洞
 	unsigned long va_start;
 	unsigned long va_end;
 	unsigned long flags;
+	//链接到rbtree
 	struct rb_node rb_node;         /* address sorted rbtree */
+	//链接到list
 	struct list_head list;          /* address sorted list */
 	struct llist_node purge_list;    /* "lazy purge" list */
+	//指向 vm_struct
 	struct vm_struct *vm;
 	struct rcu_head rcu_head;
 };

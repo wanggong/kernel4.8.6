@@ -447,6 +447,7 @@ static int __init_memblock memblock_double_array(struct memblock_type *type,
  *
  * Scan @type and merge neighboring compatible regions.
  */
+ //检查是否有两个相邻的region可以合并，如果有，则合并之。
 static void __init_memblock memblock_merge_regions(struct memblock_type *type)
 {
 	int i = 0;
@@ -484,6 +485,7 @@ static void __init_memblock memblock_merge_regions(struct memblock_type *type)
  * Insert new memblock region [@base,@base+@size) into @type at @idx.
  * @type must already have extra room to accommodate the new region.
  */
+ //将base插入到type的idx region
 static void __init_memblock memblock_insert_region(struct memblock_type *type,
 						   int idx, phys_addr_t base,
 						   phys_addr_t size,
