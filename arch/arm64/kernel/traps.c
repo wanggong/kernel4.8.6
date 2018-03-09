@@ -282,9 +282,10 @@ void die(const char *str, struct pt_regs *regs, int err)
 	add_taint(TAINT_DIE, LOCKDEP_NOW_UNRELIABLE);
 	raw_spin_unlock_irq(&die_lock);
 	oops_exit();
-
+//在中断中的话就直接panic，
 	if (in_interrupt())
 		panic("Fatal exception in interrupt");
+//如果不是在中断中，要看此值的设置了，如果设置就panic，否则不panic
 	if (panic_on_oops)
 		panic("Fatal exception");
 	if (ret != NOTIFY_STOP)

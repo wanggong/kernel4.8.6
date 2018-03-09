@@ -358,7 +358,7 @@ struct vm_area_struct {
 //vm_page_prot和vm_flags是同一个东西，供不同时期使用，其中vm_flags是用户层传过来的标志
 //通过vm_get_page_prot转换成vm_page_prot供硬件使用
 //这两个标志的使用参见do_brk和mmap_region  
-//vm_flags枚举是VM_NONE到VM_MERGEABLE(file:include/linux/mm.h)
+//vm_flags枚举是 VM_NONE 到 VM_MERGEABLE (file:include/linux/mm.h)
 //vm_page_prot在mmap.c中对应protection_map，这里边的定义是跟具体平台相关的，要写入到
 //mmu的pagetable中的值，在arm64中对应于(file:arch/arm64/include/asm/pgtable-prot.h)中的
 //PAGE_xxx,最终对应于(file:arch/arm64/include/asm/pgtable-hwdef.h)中的PTE_xxxx的值
@@ -429,7 +429,7 @@ struct core_state {
 };
 
 enum {
-//更新函数insert_page，insert_page，	
+//更新函数 insert_page，insert_page，	
 //更新时机是在将页面插入到vma并设置pte时，所以有理由猜测这个统计不是物理内存，也不是虚拟内存
 //而是映射过物理内存的虚拟内存(因为一个物理内存可能会被多次映射)，但在task_mem中，这个数据被
 //当作rss使用了，准确吗?重复映射怎么算?

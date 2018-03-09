@@ -322,6 +322,7 @@ static int __kprobes do_page_fault(unsigned long addr, unsigned int esr,
 
 	if (is_el0_instruction_abort(esr)) {
 		vm_flags = VM_EXEC;
+//这里判断是读还是写导致的
 	} else if ((esr & ESR_ELx_WNR) && !(esr & ESR_ELx_CM)) {
 		vm_flags = VM_WRITE;
 		mm_flags |= FAULT_FLAG_WRITE;
@@ -496,7 +497,7 @@ static int do_bad(unsigned long addr, unsigned int esr, struct pt_regs *regs)
 {
 	return 1;
 }
-
+//见armv8 p1872
 static const struct fault_info {
 	int	(*fn)(unsigned long addr, unsigned int esr, struct pt_regs *regs);
 	int	sig;

@@ -622,6 +622,7 @@ static inline int is_zero_pfn(unsigned long pfn)
 	return pfn == zero_pfn;
 }
 
+//返回全0的页面，这个在page_fault中，如果是读就返回这个页面
 static inline unsigned long my_zero_pfn(unsigned long addr)
 {
 	extern unsigned long zero_pfn;

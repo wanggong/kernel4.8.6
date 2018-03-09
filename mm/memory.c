@@ -2842,8 +2842,11 @@ static int do_anonymous_page(struct fault_env *fe)
   //所以对于这种操作本身就不正常，分配一个被0填充的页使用户进程读出来的都
   //是0也许会更安全一些。
   //后面再写该怎么处理?重新进入fault，然后分配页面?
+  //是的，现在映射是只读的，后面如果要写，则重新分配
 	if (!(fe->flags & FAULT_FLAG_WRITE) &&
 			!mm_forbids_zeropage(vma->vm_mm)) {
+		//这里没有设置write和dirty属性，所以后面更改pte属性时，会设为readonly。
+		//见ptep_set_access_flags，被handle_pte_fault调用
 		entry = pte_mkspecial(pfn_pte(my_zero_pfn(fe->address),
 						vma->vm_page_prot));
 		fe->pte = pte_offset_map_lock(vma->vm_mm, fe->pmd, fe->address,
@@ -2881,6 +2884,9 @@ static int do_anonymous_page(struct fault_env *fe)
 
 	entry = mk_pte(page, vma->vm_page_prot);
     //如果vm_flags没有设置VM_WRITE，这些内存是不是以后就只能读了?
+    //vma->vm_flags的flag是控制整个vma的所有页面的，所以上面说的是正确的
+    //如果是write的，则设置dirty和write标志，后面会根据这两个标志更改pte
+	//的读写属性
 	if (vma->vm_flags & VM_WRITE)
 		entry = pte_mkwrite(pte_mkdirty(entry));
 
@@ -2896,7 +2902,7 @@ static int do_anonymous_page(struct fault_env *fe)
 		put_page(page);
 		return handle_userfault(fe, VM_UFFD_MISSING);
 	}
-
+//增加anon的计数
 	inc_mm_counter_fast(vma->vm_mm, MM_ANONPAGES);
 	page_add_new_anon_rmap(page, vma, fe->address, false);
 	mem_cgroup_commit_charge(page, memcg, false, false);
@@ -3250,8 +3256,7 @@ out:
 	return ret;
 }
 
-//mmap文件，首次访问，而且是只读
-//通过__do_fault分配内存，并从将文件的内存拷贝进来，然后设置pte
+//mmap文件，首次访问，而且是读
 static int do_read_fault(struct fault_env *fe, pgoff_t pgoff)
 {
 	struct vm_area_struct *vma = fe->vma;
