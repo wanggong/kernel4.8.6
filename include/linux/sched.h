@@ -1687,15 +1687,11 @@ vmacache_seqnum:当mm删除了vma时，那么这里cache的vma就需要失效，这个字段
 //信号的设置都在这个变量里边，这个变量是进程共享的，进程的多个线程共享第一个线程创建的
 //sighand，见copy_sighand。
 	struct sighand_struct *sighand;
-<<<<<<< HEAD
-	
-//当signal正在处理时，会添加到block中
-=======
 //blocked表示当前线程要block的signal
->>>>>>> 55d398193e7d61c07f2e64eacef1201d180d63fe
 	sigset_t blocked, real_blocked;
 	sigset_t saved_sigmask;	/* restored if set_restore_sigmask() was used */
-//待处理的signal    
+//待处理的signal，当前线程可能处理的signal有两个地方存放，一个是整个进程共享的，存放于t->signal->shared_pending，
+//另一个就是此线程特有的，存放于此处。
 	struct sigpending pending;
 
 	unsigned long sas_ss_sp;

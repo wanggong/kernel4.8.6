@@ -1411,7 +1411,7 @@ static int kill_something_info(int sig, struct siginfo *info, pid_t pid)
 /*
  * These are for backward compatibility with the rest of the kernel source.
  */
-
+//给当前线程发送一个signal，发送到当前线程上，只能有当前线程来处理。
 int send_sig_info(int sig, struct siginfo *info, struct task_struct *p)
 {
 	/*

@@ -44,6 +44,7 @@ static inline void arch_local_irq_enable(void)
 		: "memory");
 }
 
+//第二位是I的中断，这里只是关闭了IRQ，FIQ并没有关闭
 static inline void arch_local_irq_disable(void)
 {
 	asm volatile(

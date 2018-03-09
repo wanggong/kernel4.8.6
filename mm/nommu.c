@@ -857,6 +857,7 @@ int expand_stack(struct vm_area_struct *vma, unsigned long address)
  * look up the first VMA exactly that exactly matches addr
  * - should be called with mm->mmap_sem at least held readlocked
  */
+ //查找范围是（start，start+len）的vma，为什么不用树查找？用树查找不是更快吗？
 static struct vm_area_struct *find_vma_exact(struct mm_struct *mm,
 					     unsigned long addr,
 					     unsigned long len)
