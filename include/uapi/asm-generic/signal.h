@@ -79,7 +79,7 @@
  * New architectures should not define the obsolete
  *	SA_RESTORER	0x04000000
  */
-
+/7
 #if !defined MINSIGSTKSZ || !defined SIGSTKSZ
 #define MINSIGSTKSZ	2048
 #define SIGSTKSZ	8192
