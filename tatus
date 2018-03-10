@@ -1,0 +1,146 @@
+[33mcommit 46b89c2d55310227f9e02b29038d15442b545f7f[m[33m ([m[1;36mHEAD -> [m[1;32mmaster[m[33m)[m
+Author: wanggongzhen <wanggongzhen@hotmail.com>
+Date:   Fri Aug 11 16:06:53 2017 +0800
+
+    sched and signal
+
+[33mcommit ef2546de41a078fb9b9decba5f8e0531fd56a8a7[m
+Author: unknown <wanggongzhen@LEADCORETECH.COM>
+Date:   Tue Jul 11 17:41:04 2017 +0800
+
+    add perf content
+
+[33mcommit 7de95f125d432714eb5ebbfcbbffbacb6db15d9b[m
+Author: wanggongzhen <wanggongzhen@hotmail.com>
+Date:   Thu May 25 21:15:50 2017 +0800
+
+    vmstats comment
+
+[33mcommit 3d33a29c8627a707f7496ad6726ef07b9f638244[m
+Author: wanggongzhen <wanggongzhen@hotmail.com>
+Date:   Thu May 25 16:48:46 2017 +0800
+
+    add zone content
+
+[33mcommit 1a10ed49630816b78b3d7e7d1eaf52a16b808333[m
+Author: wanggongzhen <wanggongzhen@hotmail.com>
+Date:   Wed May 24 21:13:20 2017 +0800
+
+    add zone comment
+
+[33mcommit 08e0e9bbc39e9889b5ce80698d86c1ace4af2530[m
+Merge: a7eed1e7 9db330ff
+Author: wanggongzhen <wanggongzhen@hotmail.com>
+Date:   Wed May 24 19:10:17 2017 +0800
+
+    Merge ../git/linux-4.8.6
+    
+    g Please enter a commit message to explain why this merge is necessary,
+
+[33mcommit a7eed1e7e9e7cb13f3859f9b410645af8945c2be[m
+Author: wanggongzhen <wanggongzhen@hotmail.com>
+Date:   Wed May 24 19:09:51 2017 +0800
+
+    add more comment
+
+[33mcommit 9db330ffd3a26f2c03e5ad0e07ceb2da9ebe02bd[m
+Author: wanggongzhen <wanggongzhen@hotmail.com>
+Date:   Wed May 24 17:21:36 2017 +0800
+
+    add watermark comment
+
+[33mcommit f7ebe41180d0002b86400c0b6a5363b319ce97db[m
+Author: wanggongzhen <wanggongzhen@hotmail.com>
+Date:   Tue May 23 17:23:37 2017 +0800
+
+    start water mark
+
+[33mcommit 9dab1db7a132883e2ee5059c3dd735b0cd32612f[m
+Merge: a5605c37 077d8476
+Author: wanggongzhen <wanggongzhen@hotmail.com>
+Date:   Tue May 23 08:50:30 2017 +0800
+
+    merge
+    
+    Merge /cygdrive/d/git/back/linux-4.8.6
+
+[33mcommit a5605c373493444cc29cb6f22efd8e3d0773a8fd[m
+Author: wanggongzhen <wanggongzhen@hotmail.com>
+Date:   Tue May 23 08:48:06 2017 +0800
+
+    commit for mm_types
+
+[33mcommit 077d847652ad78e328be25218163ae780557a092[m
+Author: wanggongzhen <wanggongzhen@hotmail.com>
+Date:   Mon May 22 21:10:56 2017 +0800
+
+    add more comment
+
+[33mcommit abd48597b7e557cc2c8ae7af69029b92a39f1c5b[m
+Author: wanggongzhen <wanggongzhen@hotmail.com>
+Date:   Mon May 22 17:12:11 2017 +0800
+
+    add mm_struct comment
+
+[33mcommit febaf004179160d8818f9ed35a27e570aabe2b51[m
+Merge: af04ac67 432c6e01
+Author: wanggongzhen <wanggongzhen@hotmail.com>
+Date:   Fri May 19 20:10:34 2017 +0800
+
+    Merge branch 'master' of G:/git/back/linux-4.8.6
+
+[33mcommit af04ac67bcd2a18d59fcf05f233561ad4b6ff6b0[m
+Author: wanggongzhen <wanggongzhen@hotmail.com>
+Date:   Fri May 19 20:05:07 2017 +0800
+
+    commit mm
+
+[33mcommit 432c6e013501bab01746232884ca629647b9286d[m
+Author: wanggongzhen <wanggongzhen@hotmail.com>
+Date:   Fri May 19 17:33:39 2017 +0800
+
+    add more comment
+
+[33mcommit 2f7f98ab57923e5127b178a071dce23f705e6600[m
+Merge: eec12586 57579853
+Author: wanggongzhen <wanggongzhen@hotmail.com>
+Date:   Wed May 17 19:12:58 2017 +0800
+
+    Merge branch 'master' of G:/git/linux-4.8.6
+    nerge it`
+
+[33mcommit eec125862c3c962195074bb388ff5a1c558171a8[m
+Author: wanggongzhen <wanggongzhen@hotmail.com>
+Date:   Wed May 17 19:12:52 2017 +0800
+
+    mmap
+
+[33mcommit 57579853b5a7d9ef0f3fe380cd15922e1af741b5[m
+Author: wanggongzhen <wanggongzhen@hotmail.com>
+Date:   Wed May 17 17:09:13 2017 +0800
+
+    add some mm
+
+[33mcommit e879b441d58517741a8896a3121cb04efdf375d7[m
+Author: wanggongzhen <wanggongzhen@hotmail.com>
+Date:   Sat May 13 15:38:24 2017 +0800
+
+    add others
+
+[33mcommit 1ffc9e34e861a30b76259a6ff157662f695e6c1f[m
+Author: wanggongzhen <wanggongzhen@hotmail.com>
+Date:   Fri May 12 17:16:56 2017 +0800
+
+    add trace comment
+
+[33mcommit e9a7e60767b80fedc92a1e32148f234b9e8652a2[m
+Author: wanggongzhen <wanggongzhen@hotmail.com>
+Date:   Fri May 12 11:13:46 2017 +0800
+
+    add linux4.8.6
+
+[33mcommit 7880a8b118bb5e84c87b7c97afb5bb4f701d0de4[m
+Author: wanggongzhen <wanggongzhen@hotmail.com>
+Date:   Fri May 12 10:58:02 2017 +0800
+
+    test
