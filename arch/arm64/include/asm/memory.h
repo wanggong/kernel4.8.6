@@ -90,6 +90,7 @@ image安放在虚拟地址空间的哪个位置上。
 #define PCI_IO_END		(VMEMMAP_START - SZ_2M)
 #define PCI_IO_START		(PCI_IO_END - PCI_IO_SIZE)
 #define FIXADDR_TOP		(PCI_IO_START - SZ_2M)
+//user空间的最大值，同时也是user空间的大小
 #define TASK_SIZE_64		(UL(1) << VA_BITS)
 
 //	一般而言，用户地址空间从0开始，大小就是TASK_SIZE，因此，

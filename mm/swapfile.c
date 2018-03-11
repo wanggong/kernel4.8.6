@@ -927,6 +927,7 @@ out:
  * reuse_swap_page() returns false, but it may be always overwritten
  * (see the other implementation for CONFIG_SWAP=n).
  */
+//此函数在和COW相关的代码中被调用，当此页面只有一个使用者时返回True，否则返回False
 bool reuse_swap_page(struct page *page, int *total_mapcount)
 {
 	int count;

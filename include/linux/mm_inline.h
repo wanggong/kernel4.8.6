@@ -105,7 +105,7 @@ static __always_inline enum lru_list page_off_lru(struct page *page)
  * Returns the LRU list a page should be on, as an index
  * into the array of LRU lists.
  */
-  //根据PG_unevictable ， PG_swapbacked ，PG_active标志判断当前page应该加入
+  //根据PG_unevictable ， PG_swapbacked ，PG_active 标志判断当前page应该加入
   //哪个lru链表
 static __always_inline enum lru_list page_lru(struct page *page)
 {

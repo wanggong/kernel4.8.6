@@ -461,6 +461,7 @@ static inline   int PageLRU(struct page *page)
 {
     return (__builtin_constant_p((PG_lru)) ? constant_test_bit((PG_lru), (&compound_head(page)->flags)) : variable_test_bit((PG_lru), (&compound_head(page)->flags)));
 }
+//设置lru，此位表示page是否在lru中
 static inline   void SetPageLRU(struct page *page)
 {
     set_bit(PG_lru, &compound_head(page)->flags);

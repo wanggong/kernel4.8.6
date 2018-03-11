@@ -2125,7 +2125,8 @@ static int do_page_mkwrite(struct vm_area_struct *vma, struct page *page,
  * case, all we need to do here is to mark the page as writable and update
  * any related book-keeping.
  */
- //没看明白
+ //对于之前共享的页面现在只剩下一个使用者了，所以此使用者不需要再做COW的
+ //操作了，直接重设pte，然后便可以写入了
 static inline int wp_page_reuse(struct fault_env *fe, pte_t orig_pte,
 			struct page *page, int page_mkwrite, int dirty_shared)
 	__releases(fe->ptl)
@@ -2357,6 +2358,7 @@ static int wp_pfn_shared(struct fault_env *fe,  pte_t orig_pte)
 	return wp_page_reuse(fe, orig_pte, NULL, 0, 0);
 }
 
+//没看明白
 static int wp_page_shared(struct fault_env *fe, pte_t orig_pte,
 		struct page *old_page)
 	__releases(fe->ptl)
@@ -2414,9 +2416,7 @@ static int wp_page_shared(struct fault_env *fe, pte_t orig_pte,
  * but allow concurrent faults), with pte both mapped and locked.
  * We return with mmap_sem still held, but pte unmapped and unlocked.
  */
- //注释已经很清楚了，但是代码还是没看懂
- //或许最关键的是wp_page_copy
- //申请一个页面，拷贝过去，并设置pte
+ //注释已经很清楚
 static int do_wp_page(struct fault_env *fe, pte_t orig_pte)
 	__releases(fe->ptl)
 {
@@ -2475,7 +2475,9 @@ static int do_wp_page(struct fault_env *fe, pte_t orig_pte)
 			return wp_page_reuse(fe, orig_pte, old_page, 0, 0);
 		}
 		unlock_page(old_page);
-	} else if (unlikely((vma->vm_flags & (VM_WRITE|VM_SHARED)) ==
+	} 
+	//write shared是什么意思？
+	else if (unlikely((vma->vm_flags & (VM_WRITE|VM_SHARED)) ==
 					(VM_WRITE|VM_SHARED))) {
 		return wp_page_shared(fe, orig_pte, old_page);
 	}
@@ -2486,6 +2488,7 @@ static int do_wp_page(struct fault_env *fe, pte_t orig_pte)
 	get_page(old_page);
 
 	pte_unmap_unlock(fe->pte, fe->ptl);
+	//执行cow操作
 	return wp_page_copy(fe, orig_pte, old_page);
 }
 
@@ -3628,6 +3631,7 @@ static int handle_pte_fault(struct fault_env *fe)
 	spin_lock(fe->ptl);
 	if (unlikely(!pte_same(*fe->pte, entry)))
 		goto unlock;
+	//如果之前是只读，现在要写了，进行COW操作
 	if (fe->flags & FAULT_FLAG_WRITE) {
 		if (!pte_write(entry))
 			return do_wp_page(fe, entry);
@@ -3712,7 +3716,7 @@ static int __handle_mm_fault(struct vm_area_struct *vma, unsigned long address,
  * The mmap_sem may have been released depending on flags and our
  * return value.  See filemap_fault() and __lock_page_or_retry().
  */
-//调用 __handle_mm_fault 处理fault ，代码走到这里一定是user的fault了
+//调用 __handle_mm_fault 处理fault
 int handle_mm_fault(struct vm_area_struct *vma, unsigned long address,
 		unsigned int flags)
 {
@@ -3720,6 +3724,7 @@ int handle_mm_fault(struct vm_area_struct *vma, unsigned long address,
 
 	__set_current_state(TASK_RUNNING);
 
+	//增加pagefault计数，可通过/proc/vmstat查看
 	count_vm_event(PGFAULT);
 	mem_cgroup_count_vm_event(vma->vm_mm, PGFAULT);
 

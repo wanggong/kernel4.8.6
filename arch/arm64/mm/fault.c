@@ -244,6 +244,8 @@ static int __do_page_fault(struct mm_struct *mm, unsigned long addr,
 
 	vma = find_vma(mm, addr);
 	fault = VM_FAULT_BADMAP;
+	//kernel的pagefault是没法修复的，而user的空间都在vma中，所以此处会判断
+	//如果再vma中找不到，就没法修复
 	if (unlikely(!vma))
 		goto out;
 	if (unlikely(vma->vm_start > addr))

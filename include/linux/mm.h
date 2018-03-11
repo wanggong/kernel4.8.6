@@ -540,7 +540,7 @@ static inline int page_mapcount(struct page *page)
 
 	if (unlikely(PageCompound(page)))
 		return __page_mapcount(page);
-	return atomic_read(&page->_mapcount) + 1;
+	return atomic_read(&page->_mapcount) + 1;//为什么要加1?
 }
 
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE

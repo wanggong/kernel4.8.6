@@ -2034,7 +2034,7 @@ static int page_cache_read(struct file *file, pgoff_t offset, gfp_t gfp_mask)
 		page = __page_cache_alloc(gfp_mask|__GFP_COLD);
 		if (!page)
 			return -ENOMEM;
-
+//将page添加到mapping中，并同时添加到file的lru中
 		ret = add_to_page_cache_lru(page, mapping, offset, gfp_mask & GFP_KERNEL);
 		if (ret == 0)
 			ret = mapping->a_ops->readpage(file, page);
@@ -2221,6 +2221,7 @@ no_cached_page:
 	 * We're only likely to ever get here if MADV_RANDOM is in
 	 * effect.
 	 */
+	 //为offset分配一个cache，并读出文件
 	error = page_cache_read(file, offset, vmf->gfp_mask);
 
 	/*

@@ -528,6 +528,9 @@ anon_vma_interval_tree_post_update_vma(struct vm_area_struct *vma)
 }
 //在vma的tree中找到一个(addr,end)的空洞，并返回空洞的父节点及要连接到的rb_link
 //返回0表示找到，返回其他表示这段空间已经被映射了
+//*rb_link表示空洞所在的位置，也就是vma将要插入的位置，这个必定是叶子节点。
+//rb_parent：表示rb_link的父节点
+//pprev,表示在rb_link前面的节点，在更新链表时使用
 static int find_vma_links(struct mm_struct *mm, unsigned long addr,
 		unsigned long end, struct vm_area_struct **pprev,
 		struct rb_node ***rb_link, struct rb_node **rb_parent)
@@ -1572,6 +1575,7 @@ unsigned long mmap_region(struct file *file, unsigned long addr,
 	}
 
 	/* Clear old maps */
+	//查看(addr,len)区间是否有已经被映射了（部分映射），如果是，则unmap
 	while (find_vma_links(mm, addr, addr + len, &prev, &rb_link,
 			      &rb_parent)) {
 		if (do_munmap(mm, addr, len))

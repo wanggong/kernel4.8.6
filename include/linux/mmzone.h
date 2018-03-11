@@ -141,7 +141,8 @@ enum zone_stat_item {
 	NUMA_OTHER,		/* allocation from other node */
 #endif
 	NR_FREE_CMA_PAGES,
-	NR_VM_ZONE_STAT_ITEMS };
+	NR_VM_ZONE_STAT_ITEMS 
+};
 
 enum node_stat_item {
 	NR_LRU_BASE,
@@ -159,7 +160,9 @@ enum node_stat_item {
 	NR_ANON_MAPPED,	/* Mapped anonymous pages */
 	NR_FILE_MAPPED,	/* pagecache pages mapped into pagetables.
 			   only modified from process context */
-//buffer和cache都是在这里计算			   
+//buffer和cache都是在这里计算		
+//统计发生在函数 __add_to_page_cache_locked 中，当将page添加到mapping之后
+//加一的
 	NR_FILE_PAGES,
 	NR_FILE_DIRTY,
 	NR_WRITEBACK,
@@ -189,6 +192,7 @@ enum node_stat_item {
 #define LRU_ACTIVE 1
 #define LRU_FILE 2
 
+//一共有下面5个lru链表
 enum lru_list {
 	LRU_INACTIVE_ANON = LRU_BASE,
 	LRU_ACTIVE_ANON = LRU_BASE + LRU_ACTIVE,
@@ -802,6 +806,7 @@ zone在一块，按从大到小排列。
 #endif
 
 	/* Fields commonly accessed by the page reclaim scanner */
+//lru的链表
 	struct lruvec		lruvec;
 
 	/*

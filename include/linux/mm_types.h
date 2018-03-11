@@ -108,6 +108,8 @@ struct page {
 
 //page在使用时要通过pte索引的，一个page可以在多个用户空间共享使用，这就会将此page映射到
 //多个pte中，这个字段就是用来统计page映射到了多少个pte中。
+//这个在share memory或COW过程中很有用，当mapcount大于零时表示有多个进程map到此page，需要进行cow
+//操作，当mapcount==0时，表示现在只有一个进程使用了，可以直接修改pte的值，不需要分配页然后拷贝了。
 
 				atomic_t _mapcount;
 
@@ -348,7 +350,7 @@ struct vm_area_struct {
 //所有的vma都在rb_tree中，同时也在VM链表中，而这些链表在使用之后可能会被删除
 //这样就会在链表中存在空洞，当我们需要需要新的VMA时，可能需要重新使用这些空间
 //如果从链表或rb_tree中一个一个的查找两个之间的空洞，效率会比较差，所以就在每个
-//VM上添加了一个rb_subtree_gap，这个字段表示以当前节点为根的所有的子树中最大的空洞，
+//VM上添加了一个 b_subtree_gap 这个字段表示以当前节点为根的所有的子树中最大的空洞，
 //这样在申请空间时，只需要查看根节点rb_subtree_gap的大小就可以确认是否有足够大的空洞了。
 	unsigned long rb_subtree_gap;
 
@@ -458,7 +460,8 @@ struct kioctx_table;
 struct mm_struct {
 //链表形式存放的vma    
 	struct vm_area_struct *mmap;		/* list of VMAs */
-//以树的形式存放的vma
+//以树的形式存放的vma，此树为扩展的线段树，没有重叠的区间存在，区间从左向右排列，
+//扩展的部分为树种最大的空洞。
 	struct rb_root mm_rb;
 /******************************************************************************
 一个进程的vma可能比较多，当一个需要查找一个地址在哪个vma中时，正常通过

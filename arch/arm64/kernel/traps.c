@@ -285,7 +285,8 @@ void die(const char *str, struct pt_regs *regs, int err)
 //在中断中的话就直接panic，
 	if (in_interrupt())
 		panic("Fatal exception in interrupt");
-//如果不是在中断中，要看此值的设置了，如果设置就panic，否则不panic
+//如果不是在中断中，要看此值的设置了，如果设置就panic，否则不panic，
+//这个对kernel也适用，所以kernel的fault也不一定会panic，要看这个设置。
 	if (panic_on_oops)
 		panic("Fatal exception");
 	if (ret != NOTIFY_STOP)

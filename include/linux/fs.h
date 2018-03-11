@@ -688,12 +688,13 @@ struct inode {
 	u64			i_version;
 	atomic_t		i_count;
 	atomic_t		i_dio_count;
- //解释见get_write_access
+ //解释见 get_write_access
  //i_writecount有三种状态，
  // 0 表示没有其他进程操作，此时既可以写入也可以禁止写入
  // >0 表示已经有进程申请过写入了，此时如果禁止写入会返回失败
  // <0 表示此时已经被禁止写入了，如果此时申请写入会返回失败
 //对这个字段的操作有四个函数，见get_write_access
+//在mapping种有个i_mmap_writable字段，和本字段有啥联系和区别？
 	atomic_t		i_writecount;
 #ifdef CONFIG_IMA
 	atomic_t		i_readcount; /* struct files open RO */

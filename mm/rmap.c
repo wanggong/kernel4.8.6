@@ -1094,6 +1094,7 @@ EXPORT_SYMBOL_GPL(page_mkclean);
  * process, so the rmap code will not search the parent or sibling
  * processes.
  */
+ //将page的mapping设为anon，什么时候设置不是anon的？
 void page_move_anon_rmap(struct page *page, struct vm_area_struct *vma)
 {
 	struct anon_vma *anon_vma = vma->anon_vma;

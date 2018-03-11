@@ -1545,7 +1545,7 @@ enum writeback_stat_item {
 	NR_DIRTY_BG_THRESHOLD,
 	NR_VM_WRITEBACK_STAT_ITEMS,
 };
-
+// proc/vmstat的收集函数，
 static void *vmstat_start(struct seq_file *m, loff_t *pos)
 {
 	unsigned long *v;
@@ -1863,6 +1863,7 @@ static int __init setup_vmstat(void)
 #ifdef CONFIG_PROC_FS
 	proc_create("buddyinfo", S_IRUGO, NULL, &fragmentation_file_operations);
 	proc_create("pagetypeinfo", S_IRUGO, NULL, &pagetypeinfo_file_ops);
+	//vmstat包含了很多的信息，这个是个很有用的字段
 	proc_create("vmstat", S_IRUGO, NULL, &proc_vmstat_file_operations);
 	proc_create("zoneinfo", S_IRUGO, NULL, &proc_zoneinfo_file_operations);
 #endif
