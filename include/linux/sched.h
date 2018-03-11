@@ -1668,6 +1668,7 @@ vmacache_seqnum:当mm删除了vma时，那么这里cache的vma就需要失效，这个字段
 #ifdef CONFIG_SYSVIPC
 /* ipc stuff */
 	struct sysv_sem sysvsem;
+	//共享内存链表
 	struct sysv_shm sysvshm;
 #endif
 #ifdef CONFIG_DETECT_HUNG_TASK

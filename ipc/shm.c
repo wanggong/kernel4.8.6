@@ -518,6 +518,7 @@ static const struct vm_operations_struct shm_vm_ops = {
  *
  * Called with shm_ids.rwsem held as a writer.
  */
+ //创建共享内存
 static int newseg(struct ipc_namespace *ns, struct ipc_params *params)
 {
 	key_t key = params->key;
@@ -540,7 +541,7 @@ static int newseg(struct ipc_namespace *ns, struct ipc_params *params)
 	if (ns->shm_tot + numpages < ns->shm_tot ||
 			ns->shm_tot + numpages > ns->shm_ctlall)
 		return -ENOSPC;
-
+//shp是会存到系统中的，其他进程通过key可以查到这个数据结构
 	shp = ipc_rcu_alloc(sizeof(*shp));
 	if (!shp)
 		return -ENOMEM;
@@ -555,7 +556,7 @@ static int newseg(struct ipc_namespace *ns, struct ipc_params *params)
 		ipc_rcu_putref(shp, ipc_rcu_free);
 		return error;
 	}
-
+//创建一个文件名，最终会在tmpfs的文件系统中创建一个此文件
 	sprintf(name, "SYSV%08x", key);
 	if (shmflg & SHM_HUGETLB) {
 		struct hstate *hs;
@@ -582,6 +583,7 @@ static int newseg(struct ipc_namespace *ns, struct ipc_params *params)
 		if  ((shmflg & SHM_NORESERVE) &&
 				sysctl_overcommit_memory != OVERCOMMIT_NEVER)
 			acctflag = VM_NORESERVE;
+		//创建file
 		file = shmem_kernel_file_setup(name, size, acctflag);
 	}
 	error = PTR_ERR(file);
@@ -1195,7 +1197,7 @@ long do_shmat(int shmid, char __user *shmaddr, int shmflg, ulong *raddr,
 		path_put(&path);
 		goto out_nattch;
 	}
-
+//为本进程创建一个file
 	file = alloc_file(&path, f_mode,
 			  is_file_hugepages(shp->shm_file) ?
 				&shm_file_operations_huge :
@@ -1231,7 +1233,7 @@ long do_shmat(int shmid, char __user *shmaddr, int shmflg, ulong *raddr,
 		if (find_vma_intersection(current->mm, addr, addr + size))
 			goto invalid;
 	}
-
+//map 此file
 	addr = do_mmap_pgoff(file, addr, size, prot, flags, 0, &populate);
 	*raddr = addr;
 	err = 0;

@@ -2062,6 +2062,7 @@ do_mmap_pgoff(struct file *file, unsigned long addr,
 }
 
 #ifdef CONFIG_MMU
+//为虚拟地址分配物理内存，并映射
 extern int __mm_populate(unsigned long addr, unsigned long len,
 			 int ignore_errors);
 static inline void mm_populate(unsigned long addr, unsigned long len)

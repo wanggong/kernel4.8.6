@@ -2069,6 +2069,7 @@ static int shmem_mmap(struct file *file, struct vm_area_struct *vma)
 	return 0;
 }
 
+//创建一个inode
 static struct inode *shmem_get_inode(struct super_block *sb, const struct inode *dir,
 				     umode_t mode, dev_t dev, unsigned long flags)
 {
@@ -4124,7 +4125,7 @@ static struct file *__shmem_file_setup(const char *name, loff_t size,
 	res = ERR_PTR(ramfs_nommu_expand_for_mapping(inode, size));
 	if (IS_ERR(res))
 		goto put_path;
-
+//创建一个file
 	res = alloc_file(&path, FMODE_WRITE | FMODE_READ,
 		  &shmem_file_operations);
 	if (IS_ERR(res))
@@ -4149,6 +4150,7 @@ put_path:
  * @size: size to be set for the file
  * @flags: VM_NORESERVE suppresses pre-accounting of the entire object size
  */
+//在tmpfs文件系统中创建一个name的文件
 struct file *shmem_kernel_file_setup(const char *name, loff_t size, unsigned long flags)
 {
 	return __shmem_file_setup(name, size, flags, S_PRIVATE);
@@ -4170,6 +4172,16 @@ EXPORT_SYMBOL_GPL(shmem_file_setup);
  * shmem_zero_setup - setup a shared anonymous mapping
  * @vma: the vma to be mmapped is prepared by do_mmap_pgoff
  */
+ /*
+为vma创建基于dev/zero的共享内存，这一段内存可在父子进程或兄弟进程间共享，在
+调用fork后不会发生COW的动作
+mmap(MAP_ANONYMOUS + MAP_SHARED)会走到这里
+MAP_ANONYMOUS + MAP_SHARED:
+eah call creates a distinct mapping that doesn't share pages with any other mapping
+children inherit parent's mappings
+no copy-on-write when someone else sharing the mapping writes on the shared mapping
+shared anonymous mappings allow IPC in a manner similar to System V memory segments, but only between related processes
+*/
 int shmem_zero_setup(struct vm_area_struct *vma)
 {
 	struct file *file;

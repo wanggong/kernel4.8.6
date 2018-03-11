@@ -1369,6 +1369,7 @@ unsigned long do_mmap(struct file *file, unsigned long addr,
 		}
 	} else {
 		switch (flags & MAP_TYPE) {
+		//这里隐含了MAP_ANONYMOUS标志
 		case MAP_SHARED:
 			if (vm_flags & (VM_GROWSDOWN|VM_GROWSUP))
 				return -EINVAL;
@@ -1418,6 +1419,22 @@ malloc(20*1024*1024)
 使用strace发现系统调用时mmap，如下
 mmap(NULL, 20975616, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0)
 其中20975616 = 20*1024*1024 + 4096
+
+
+MAP_ANONYMOUS + MAP_PRIVATE:
+every call creates a distinct mapping
+children inherit parent's mappings
+childrens' writes on the inherited mapping are catered in copy-on-write manner
+the main purpose of using this kind of mapping is to allocate a new zeroized memory
+malloc employs anonymous private mappings to serve memory allocation requests larger than MMAP_THRESHOLD bytes.
+typically, MMAP_THRESHOLD is 128kB.
+
+MAP_ANONYMOUS + MAP_SHARED:
+eah call creates a distinct mapping that doesn't share pages with any other mapping
+children inherit parent's mappings
+no copy-on-write when someone else sharing the mapping writes on the shared mapping
+shared anonymous mappings allow IPC in a manner similar to System V memory segments, but only between related processes
+
 *****************************************************************************************/
 
 SYSCALL_DEFINE6(mmap_pgoff, unsigned long, addr, unsigned long, len,
@@ -1654,6 +1671,7 @@ unsigned long mmap_region(struct file *file, unsigned long addr,
 		addr = vma->vm_start;
 		vm_flags = vma->vm_flags;
 	} else if (vm_flags & VM_SHARED) {
+		//现在的理解是使用mmap(MAP_ANONYMOUS + MAP_SHARED)会走到这里，不知道是否是这样
 		error = shmem_zero_setup(vma);
 		if (error)
 			goto free_vma;
