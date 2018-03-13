@@ -32,8 +32,15 @@ enum wb_congested_state {
 typedef int (congested_fn)(void *, int);
 
 enum wb_stat_item {
+//不明白是干嘛，但是在下面的路径中和pagedirty一起增加
+//调用路径之一是：
+//__do_page_fault->handle_mm_fault->__handle_mm_fault->handle_pte_fault->do_fault->
+//->do_shared_fault->set_page_dirty->__set_page_dirty_buffers->__set_page_dirty->account_page_dirtied
 	WB_RECLAIMABLE,
 	WB_WRITEBACK,
+//dirty的页数，调用路径之一是：
+//__do_page_fault->handle_mm_fault->__handle_mm_fault->handle_pte_fault->do_fault->
+//->do_shared_fault->set_page_dirty->__set_page_dirty_buffers->__set_page_dirty->account_page_dirtied	
 	WB_DIRTIED,
 	WB_WRITTEN,
 	NR_WB_STAT_ITEMS

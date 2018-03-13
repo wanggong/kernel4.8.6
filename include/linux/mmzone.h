@@ -121,6 +121,9 @@ enum zone_stat_item {
 	NR_ZONE_INACTIVE_FILE,
 	NR_ZONE_ACTIVE_FILE,
 	NR_ZONE_UNEVICTABLE,
+	//dirty的page个数，调用路径其中之一是：
+	//__do_page_fault->handle_mm_fault->__handle_mm_fault->handle_pte_fault->do_fault->do_shared_fault->
+	//->set_page_dirty->__set_page_dirty_buffers->__set_page_dirty->account_page_dirtied
 	NR_ZONE_WRITE_PENDING,	/* Count of dirty, writeback and unstable pages */
 	NR_MLOCK,		/* mlock()ed pages found and moved off LRU */
 	NR_SLAB_RECLAIMABLE,
@@ -164,6 +167,9 @@ enum node_stat_item {
 //统计发生在函数 __add_to_page_cache_locked 中，当将page添加到mapping之后
 //加一的
 	NR_FILE_PAGES,
+//在写文件时会更新此统计信息，路径之一是：
+//__do_page_fault->handle_mm_fault->__handle_mm_fault->handle_pte_fault->do_fault->
+//->do_shared_fault->set_page_dirty->__set_page_dirty_buffers->__set_page_dirty->account_page_dirtied
 	NR_FILE_DIRTY,
 	NR_WRITEBACK,
 	NR_WRITEBACK_TEMP,	/* Writeback using temporary buffers */
@@ -174,6 +180,9 @@ enum node_stat_item {
 	NR_UNSTABLE_NFS,	/* NFS unstable pages */
 	NR_VMSCAN_WRITE,
 	NR_VMSCAN_IMMEDIATE,	/* Prioritise for reclaim when writeback ends */
+//dirty的页数，调用路径之一是：
+//__do_page_fault->handle_mm_fault->__handle_mm_fault->handle_pte_fault->do_fault->
+//->do_shared_fault->set_page_dirty->__set_page_dirty_buffers->__set_page_dirty->account_page_dirtied
 	NR_DIRTIED,		/* page dirtyings since bootup */
 	NR_WRITTEN,		/* page writings since bootup */
 	NR_VM_NODE_STAT_ITEMS

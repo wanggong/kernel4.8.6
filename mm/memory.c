@@ -3374,7 +3374,7 @@ static int do_shared_fault(struct fault_env *fe, pgoff_t pgoff)
 		put_page(fault_page);
 		return ret;
 	}
-
+//这个页面是为了写申请的，设置为dirty(现在还没有开始写，如何同步？)
 	if (set_page_dirty(fault_page))
 		dirtied = 1;
 	/*

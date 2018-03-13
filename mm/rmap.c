@@ -1017,6 +1017,9 @@ int page_referenced(struct page *page,
 	return pra.referenced;
 }
 //清除page对应的pte的dirty标志
+//这个函数会清除pte的dirty标志，同时将指向此页面的pte更新为只读的，
+//这个更新很有必要，因为只有这样才能在下次写时发生pagefault，然后
+//将页面更新为dirty，不然对于mmap出来的页面时没有办法知道被写入的。
 static int page_mkclean_one(struct page *page, struct vm_area_struct *vma,
 			    unsigned long address, void *arg)
 {
@@ -1035,6 +1038,11 @@ static int page_mkclean_one(struct page *page, struct vm_area_struct *vma,
 
 		flush_cache_page(vma, address, pte_pfn(*pte));
 		entry = ptep_clear_flush(vma, address, pte);
+		//设置wrprotected和清除dirty标志，这样在后面的set_pte_dirty时就会
+		//将此pte设置为只读的，后面再写入此页面时会发生pagefault，这样能
+		//够将此页面更新为脏的。
+		//对于文件的页面这个是一定需要的，但是对于anon的页面这么做是否有些多余？
+		//答:目前的调用路径看，是在有文件作为支持的页面才会调用这个函数。
 		entry = pte_wrprotect(entry);
 		entry = pte_mkclean(entry);
 		set_pte_at(mm, address, pte, entry);
@@ -1058,7 +1066,11 @@ static bool invalid_mkclean_vma(struct vm_area_struct *vma, void *arg)
 
 	return true;
 }
-//将page对应的pte的dirty标志清除
+//将page对应的pte的dirty标志清除，如果时有文件支持的page，还会进行下面的动作：
+//将指向此页面的pte更新为只读的，
+//这个更新很有必要，因为只有这样才能在下次写时发生pagefault，然后
+//将页面更新为dirty，不然对于mmap出来的页面时没有办法知道被写入的。
+
 int page_mkclean(struct page *page)
 {
 	int cleaned = 0;

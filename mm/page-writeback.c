@@ -2833,6 +2833,7 @@ int clear_page_dirty_for_io(struct page *page)
 		 * as a serialization point for all the different
 		 * threads doing their things.
 		 */
+		//这里的动作时将page对应的pte设置为clean和只读的。
 		if (page_mkclean(page))
 			set_page_dirty(page);
 		/*
