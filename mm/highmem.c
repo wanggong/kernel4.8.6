@@ -209,7 +209,13 @@ void kmap_flush_unused(void)
 	flush_all_zero_pkmaps();
 	unlock_kmap();
 }
-
+/*
+kmap原理：
+在系统启动时，申请一个page作为pte page，然后使一个pmd指向这个page，
+此pmd对应的虚拟地址范围时（PAGE_OFFSET-PMD_SIZE，PAGE_OFFSET），当
+有highmem的page需要映射时，使用kmap将此page的物理地址填到一个pte中，
+返回其虚拟地址即可。
+*/
 static inline unsigned long map_new_virtual(struct page *page)
 {
 	unsigned long vaddr;
@@ -325,6 +331,13 @@ void *kmap_high_get(struct page *page)
  * If ARCH_NEEDS_KMAP_HIGH_GET is not defined then this may be called
  * only from user context.
  */
+ /*
+kmap原理：
+在系统启动时，申请一个page作为pte page，然后使一个pmd指向这个page，
+此pmd对应的虚拟地址范围时（PAGE_OFFSET-PMD_SIZE，PAGE_OFFSET），当
+有highmem的page需要映射时，使用kmap将此page的物理地址填到一个pte中，
+返回其虚拟地址即可。
+*/
 void kunmap_high(struct page *page)
 {
 	unsigned long vaddr;

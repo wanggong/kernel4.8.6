@@ -115,6 +115,8 @@ enum vm_event_item {
   PGFAULT, 
   //文件为背景的pagefault，在文件cache中没有查到对应的page，需要申请page，然后
   //读入文件的fault
+  //对于写入文件的操作，并不更新此值，只是对读入的page才更新此值，可以理解为此值
+  //是发生pagefault之后需要从文件系统读入的次数（包括普通文件和swap文件）
   PGMAJFAULT,
   PGLAZYFREED,
   PGREFILL,

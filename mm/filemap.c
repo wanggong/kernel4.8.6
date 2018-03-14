@@ -2163,6 +2163,8 @@ int filemap_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	/*
 	 * Do we have something in the page cache already?
 	 */
+//查找offset对应的mapping的cache page，如果不存在而且fgp_flags & FGP_CREAT的话
+//则申请一个page加入到mapping的offset中，这个对于写函数是需要的
 	page = find_get_page(mapping, offset);
 	if (likely(page) && !(vmf->flags & FAULT_FLAG_TRIED)) {
 		/*
@@ -2173,6 +2175,8 @@ int filemap_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	} else if (!page) {
 		/* No page in the page cache at all */
 		do_sync_mmap_readahead(vma, ra, file, offset);
+		//只有需要读入时才更新此值，每个进程也有自己的maj和min fault的统计，在
+		//task的min_flt, maj_flt字段中，可通过/proc/pid/stat访问
 		count_vm_event(PGMAJFAULT);
 		mem_cgroup_count_vm_event(vma->vm_mm, PGMAJFAULT);
 		ret = VM_FAULT_MAJOR;
@@ -2340,7 +2344,7 @@ repeat:
 		unlock_page(page);
 		goto next;
 //如果在map时还没有给对应的index分配页面，则跳过，以后访问此index的pte时
-//会报page fault错误，从而调用filemap_fault将这些页面读进来
+//会报page fault异常，从而调用filemap_fault将这些页面读进来
 unlock:
 		unlock_page(page);
 skip:

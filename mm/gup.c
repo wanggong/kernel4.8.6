@@ -362,6 +362,7 @@ unmap:
  * *@flags does not include FOLL_NOWAIT, the mmap_sem may be released.
  * If it is, *@nonblocking will be set to 0 and -EBUSY returned.
  */
+//调用 handle_mm_fault 处理，将页面换入到对应的pte
 static int faultin_page(struct task_struct *tsk, struct vm_area_struct *vma,
 		unsigned long address, unsigned int *flags, int *nonblocking)
 {
@@ -527,6 +528,7 @@ static int check_vma_flags(struct vm_area_struct *vma, unsigned long gup_flags)
  * instead of __get_user_pages. __get_user_pages should be used only if
  * you need some special @gup_flags.
  */
+//将start开始的nr_pages个page通过pagefault映射到真正的物理内存
 long __get_user_pages(struct task_struct *tsk, struct mm_struct *mm,
 		unsigned long start, unsigned long nr_pages,
 		unsigned int gup_flags, struct page **pages,
@@ -588,6 +590,7 @@ retry:
 		page = follow_page_mask(vma, start, foll_flags, &page_mask);
 		if (!page) {
 			int ret;
+			//通过pagefault将page换入或申请新页面
 			ret = faultin_page(tsk, vma, start, &foll_flags,
 					nonblocking);
 			switch (ret) {
@@ -1015,6 +1018,7 @@ EXPORT_SYMBOL(get_user_pages);
  * If @nonblocking is non-NULL, it must held for read only and may be
  * released.  If it's released, *@nonblocking will be set to 0.
  */
+//将（start，end）的页面通过pagefault映射到真正的物理内存
 long populate_vma_page_range(struct vm_area_struct *vma,
 		unsigned long start, unsigned long end, int *nonblocking)
 {
@@ -1050,6 +1054,7 @@ long populate_vma_page_range(struct vm_area_struct *vma,
 	 * We made sure addr is within a VMA, so the following will
 	 * not result in a stack expansion that recurses back here.
 	 */
+	//将start开始的nr_pages个page通过pagefault映射到真正的物理内存
 	return __get_user_pages(current, mm, start, nr_pages, gup_flags,
 				NULL, NULL, nonblocking);
 }

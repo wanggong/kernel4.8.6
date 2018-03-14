@@ -865,6 +865,7 @@ static long do_video_ioctl(struct file *file, unsigned int cmd, unsigned long ar
 	long err = 0;
 
 	/* First, convert the command. */
+	//由于64位的和32位的差异，数据结构的大小是不一样的，所以导致命令也会不同
 	switch (cmd) {
 	case VIDIOC_G_FMT32: cmd = VIDIOC_G_FMT; break;
 	case VIDIOC_S_FMT32: cmd = VIDIOC_S_FMT; break;

@@ -22,6 +22,7 @@
  * 1) mem_section	- memory sections, mem_map's for valid memory
  */
 #ifdef CONFIG_SPARSEMEM_EXTREME
+//所有section都在这里，这个数组的每一项都是一个数组，对应着连续的section
 struct mem_section *mem_section[NR_SECTION_ROOTS]
 	____cacheline_internodealigned_in_smp;
 #else
@@ -59,6 +60,9 @@ static inline void set_section_nid(unsigned long section_nr, int nid)
 #endif
 
 #ifdef CONFIG_SPARSEMEM_EXTREME
+//分配 mem_section root，因为一个mem_section的占用的空间不大，所以一个页面可以
+//包含多个 mem_section ，这个页面的第一个mem_section称为root，后面的可以通过
+//offset得到
 static noinline struct mem_section __ref *sparse_index_alloc(int nid)
 {
 	struct mem_section *section = NULL;
@@ -78,6 +82,10 @@ static noinline struct mem_section __ref *sparse_index_alloc(int nid)
 }
 
 //分配mem_section[i]的内存
+//分配 mem_section root，因为一个mem_section的占用的空间不大，所以一个页面可以
+//包含多个 mem_section ，这个页面的第一个mem_section称为root，后面的可以通过
+//offset得到
+
 static int __meminit sparse_index_init(unsigned long section_nr, int nid)
 {
 	unsigned long root = SECTION_NR_TO_ROOT(section_nr);
@@ -171,7 +179,11 @@ void __meminit mminit_validate_memmodel_limits(unsigned long *start_pfn,
 
 /* Record a memory area against a node. */
 //这个函数会在arm64_memory_present中调用，当检测到内存时调用此函数
-//此函数会建立start到end之间的mem_section结构，并标记为present
+//此函数会建立start到end之间的 mem_section 结构，并标记为present
+
+//由于section的空洞很大，大部分都是空的，所以这里会检查当前section是否
+//存在，如果不存在，则分配
+
 void __init memory_present(int nid, unsigned long start, unsigned long end)
 {
 	unsigned long pfn;
@@ -181,7 +193,7 @@ void __init memory_present(int nid, unsigned long start, unsigned long end)
 	for (pfn = start; pfn < end; pfn += PAGES_PER_SECTION) {
 		unsigned long section = pfn_to_section_nr(pfn);
 		struct mem_section *ms;
-
+		
 		sparse_index_init(section, nid);
 		set_section_nid(section, nid);
 
@@ -346,6 +358,7 @@ static void __init check_usemap_section_nr(int nid, unsigned long *usemap)
 }
 #endif /* CONFIG_MEMORY_HOTREMOVE */
 
+//为(pnum_begin,pnum_end)的section分配usermap
 static void __init sparse_early_usemaps_alloc_node(void *data,
 				 unsigned long pnum_begin,
 				 unsigned long pnum_end,
@@ -440,6 +453,7 @@ void __init sparse_mem_maps_populate_node(struct page **map_map,
 #endif /* !CONFIG_SPARSEMEM_VMEMMAP */
 
 #ifdef CONFIG_SPARSEMEM_ALLOC_MEM_MAP_TOGETHER
+//为(pnum_begin,pnum_end)的section分配memmap
 static void __init sparse_early_mem_maps_alloc_node(void *data,
 				 unsigned long pnum_begin,
 				 unsigned long pnum_end,
@@ -450,7 +464,7 @@ static void __init sparse_early_mem_maps_alloc_node(void *data,
 					 map_count, nodeid);
 }
 #else
-//分配memmap的空间，并映射到对应的地址
+//分配 memmap 的空间，并映射到对应的地址
 static struct page __init *sparse_early_mem_map_alloc(unsigned long pnum)
 {
 	struct page *map;
@@ -486,6 +500,7 @@ static void __init alloc_usemap_and_memmap(void (*alloc_func)
 	int nodeid_begin = 0;
 	unsigned long pnum_begin = 0;
 
+	//找到第一个section
 	for (pnum = 0; pnum < NR_MEM_SECTIONS; pnum++) {
 		struct mem_section *ms;
 
@@ -527,7 +542,7 @@ static void __init alloc_usemap_and_memmap(void (*alloc_func)
  * for each and record the physical to section mapping.
  */
 
-//初始化sparse memory的管理，这个函数调用之前memory_present已经被调用过了
+//初始化 sparse memory 的管理，这个函数调用之前 memory_present 已经被调用过了
 void __init sparse_init(void)
 {
 	unsigned long pnum;
@@ -561,6 +576,7 @@ void __init sparse_init(void)
 	usemap_map = memblock_virt_alloc(size, 0);
 	if (!usemap_map)
 		panic("can not allocate usemap_map\n");
+	//为所有的usermap分配内存
 	alloc_usemap_and_memmap(sparse_early_usemaps_alloc_node,
 							(void *)usemap_map);
 

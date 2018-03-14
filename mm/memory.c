@@ -3117,9 +3117,12 @@ int alloc_set_pte(struct fault_env *fe, struct mem_cgroup *memcg,
 
 	flush_icache_page(vma, page);
 	entry = mk_pte(page, vma->vm_page_prot);
+	//如果是写入，则设置write dirty，如果此次fault不是写的话，设置readonly标志。
+	//难道当下次写访问时还要再fault一次？
 	if (write)
 		entry = maybe_mkwrite(pte_mkdirty(entry), vma);
 	/* copy-on-write page */
+	//shared并入file，unshared并入anon
 	if (write && !(vma->vm_flags & VM_SHARED)) {
 		inc_mm_counter_fast(vma->vm_mm, MM_ANONPAGES);
 		page_add_new_anon_rmap(page, vma, fe->address, false);
@@ -3260,6 +3263,22 @@ out:
 }
 
 //mmap文件，首次访问，而且是读
+//目前的理解：在文件访问时，如果第一次是读，则进入do_read_fault函数，这个函数
+//会进行pte的设置，但是此时的设置是只读的，下次写的时候还会再触发一次fault，那
+//时才会将pte设置为可写的，是否是这样？如果是这样就可以解释PRIVATE的映射的实现了。
+//经测试，上面的猜测是正确的，log如下
+/*
+第一次操作，读
+[  163.492164] <4> {2}[1825:reboot]wgz do_page_fault:311,mm:ffffffc0ad6d8040,addr:0x7f9cb6e000,flags:0x92000007
+[  163.492266] <4> {2}[1825:reboot]wgz handle_pte_fault:3330,mm:ffffffc0ad6d8040,addr:0x7f9cb6e000,flags:0x54
+[  163.492334] <4> {2}[1825:reboot]wgz do_fault:3162,mm:ffffffc0ad6d8040,addr:0x7f9cb6e000,flags:0x54
+[  163.494649] <4> {2}[1825:reboot]wgz handle_pte_fault:3330,mm:ffffffc0ad6d8040,addr:0x7f9cb6e000,flags:0x70
+[  163.494663] <4> {2}[1825:reboot]wgz do_fault:3162,mm:ffffffc0ad6d8040,addr:0x7f9cb6e000,flags:0x70
+第二次操作，写
+[  214.195430] <4> {2}[1825:reboot]wgz do_page_fault:311,mm:ffffffc0ad6d8040,addr:0x7f9cb6e000,flags:0x9200004f
+[  214.195529] <4> {2}[1825:reboot]wgz handle_pte_fault:3330,mm:ffffffc0ad6d8040,addr:0x7f9cb6e000,flags:0x55
+
+*/
 static int do_read_fault(struct fault_env *fe, pgoff_t pgoff)
 {
 	struct vm_area_struct *vma = fe->vma;
@@ -3311,15 +3330,18 @@ static int do_cow_fault(struct fault_env *fe, pgoff_t pgoff)
 		put_page(new_page);
 		return VM_FAULT_OOM;
 	}
-
+	//此处文件系统会申请一个page安装到其cache中，然后读入文件内容，通过
+	//&fault_page参数返回此page
 	ret = __do_fault(fe, pgoff, new_page, &fault_page, &fault_entry);
 	if (unlikely(ret & (VM_FAULT_ERROR | VM_FAULT_NOPAGE | VM_FAULT_RETRY)))
 		goto uncharge_out;
 
+	//将内容拷贝到cow的page
 	if (!(ret & VM_FAULT_DAX_LOCKED))
 		copy_user_highpage(new_page, fault_page, fe->address, vma);
 	__SetPageUptodate(new_page);
 
+	//设置此page
 	ret |= alloc_set_pte(fe, memcg, new_page);
 	if (fe->pte)
 		pte_unmap_unlock(fe->pte, fe->ptl);
@@ -3406,6 +3428,9 @@ static int do_shared_fault(struct fault_env *fe, pgoff_t pgoff)
  * return value.  See filemap_fault() and __lock_page_or_retry().
  */
  //文件映射的第一次访问
+//目前的理解：在文件访问时，如果第一次是读，则进入do_read_fault函数，这个函数
+//会进行pte的设置，但是此时的设置是只读的，下次写的时候还会再触发一次fault，那
+//时才会将pte设置为可写的，是否是这样？如果是这样就可以解释PRIVATE的映射的实现了。
 static int do_fault(struct fault_env *fe)
 {
 	struct vm_area_struct *vma = fe->vma;
@@ -3416,7 +3441,10 @@ static int do_fault(struct fault_env *fe)
 		return VM_FAULT_SIGBUS;
 	if (!(fe->flags & FAULT_FLAG_WRITE))
 		return do_read_fault(fe, pgoff);
-//private的map，
+//private的map，对于private的map，如果只是读，则不分配新page，读的就是其他mmap(share)
+//的page，只有当调用写函数之后才会进行cow的操作，这里就有个问题，如果只是对一部分page调用
+//了写操作，另一部分没有写过，则会出现写过的那部分内容不会看到其他进程（mmap(share))写的内容
+//，而没有写过的那部分会看到其他进程写入的内容，即出现数据的不一致性问题。
 	if (!(vma->vm_flags & VM_SHARED))
 		return do_cow_fault(fe, pgoff);
 	return do_shared_fault(fe, pgoff);
@@ -3631,7 +3659,8 @@ static int handle_pte_fault(struct fault_env *fe)
 	spin_lock(fe->ptl);
 	if (unlikely(!pte_same(*fe->pte, entry)))
 		goto unlock;
-	//如果之前是只读，现在要写了，进行COW操作
+	//如果之前是只读，现在要写了，进行COW操作，这里是在我们调用fork时会将
+	//父进程和子进程的pte都设置为write projected,当需要写时执行此部分。
 	if (fe->flags & FAULT_FLAG_WRITE) {
 		if (!pte_write(entry))
 			return do_wp_page(fe, entry);

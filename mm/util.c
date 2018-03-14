@@ -287,7 +287,8 @@ int __weak get_user_pages_fast(unsigned long start,
 	return get_user_pages_unlocked(start, nr_pages, write, 0, pages);
 }
 EXPORT_SYMBOL_GPL(get_user_pages_fast);
-//调用do_mmap_pgoff建立vma结构
+//调用 do_mmap_pgoff 建立vma结构
+//如果file为None，表示是anon的映射，否则是正常文件映射
 unsigned long vm_mmap_pgoff(struct file *file, unsigned long addr,
 	unsigned long len, unsigned long prot,
 	unsigned long flag, unsigned long pgoff)

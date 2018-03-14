@@ -34,6 +34,7 @@
  *
  */
 enum fixed_addresses {
+#if 0
 	FIX_HOLE,
 
 	/*
@@ -74,6 +75,24 @@ enum fixed_addresses {
 	FIX_PGD,
 
 	__end_of_fixed_addresses
+#else
+//预处理之后如下
+	FIX_HOLE,//=0
+	FIX_FDT_END,//=1
+	FIX_FDT = FIX_FDT_END + (0x00200000 + 0x00200000) / ((1UL) << 12) - 1,//=1024
+	FIX_EARLYCON_MEM_BASE,//=1024
+	FIX_TEXT_POKE0,
+	__end_of_permanent_fixed_addresses,
+	FIX_BTMAP_END = __end_of_permanent_fixed_addresses,//=1027
+	//从FIX_BTMAP_END到FIX_BTMAP_BEGIN的这一段空间是留给early ioremap的，见 early_ioremap_setup
+	FIX_BTMAP_BEGIN = FIX_BTMAP_END + ((0x00040000 / ((1UL) << 12)) * 7) - 1,//1474
+	FIX_PTE,
+	FIX_PMD,
+	FIX_PUD,
+	FIX_PGD,
+	__end_of_fixed_addresses	//1479
+
+#endif
 };
 
 #define FIXADDR_SIZE	(__end_of_permanent_fixed_addresses << PAGE_SHIFT)

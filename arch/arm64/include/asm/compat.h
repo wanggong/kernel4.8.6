@@ -223,11 +223,13 @@ typedef struct compat_siginfo {
  * appropriately converted them already.
  */
 
+//将32位的指针转为64位的
 static inline void __user *compat_ptr(compat_uptr_t uptr)
 {
 	return (void __user *)(unsigned long)uptr;
 }
 
+//将64位的指针转为32位的
 static inline compat_uptr_t ptr_to_compat(void __user *uptr)
 {
 	return (u32)(unsigned long)uptr;
@@ -298,11 +300,13 @@ struct compat_shmid64_ds {
 	compat_ulong_t __unused5;
 };
 
+//是否是32位的环境
 static inline int is_compat_task(void)
 {
 	return test_thread_flag(TIF_32BIT);
 }
 
+//thread是否是32位环境运行的
 static inline int is_compat_thread(struct thread_info *thread)
 {
 	return test_ti_thread_flag(thread, TIF_32BIT);

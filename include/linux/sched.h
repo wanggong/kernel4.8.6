@@ -1649,6 +1649,8 @@ vmacache_seqnum:当mm删除了vma时，那么这里cache的vma就需要失效，这个字段
 	u64 start_time;		/* monotonic time in nsec */
 	u64 real_start_time;	/* boot based time in nsec */
 /* mm fault and swap info: this can arguably be seen as either mm-specific or thread-specific */
+	//min_flt:该任务不需要从硬盘拷数据而发生的缺页（次缺页）的次数
+	//maj_flt:该任务需要从硬盘拷数据而发生的缺页（主缺页）的次数
 	unsigned long min_flt, maj_flt;
 
 	struct task_cputime cputime_expires;

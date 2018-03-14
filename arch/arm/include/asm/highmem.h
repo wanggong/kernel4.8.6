@@ -3,6 +3,8 @@
 
 #include <asm/kmap_types.h>
 
+//kmap的总大小是一个pmd的大小
+//kmap在arm64中不需要了
 #define PKMAP_BASE		(PAGE_OFFSET - PMD_SIZE)
 #define LAST_PKMAP		PTRS_PER_PTE
 #define LAST_PKMAP_MASK		(LAST_PKMAP - 1)

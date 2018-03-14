@@ -1368,8 +1368,8 @@ unsigned long do_mmap(struct file *file, unsigned long addr,
 			return -EINVAL;
 		}
 	} else {
+		//没有file，表示是MAP_ANONYMOUS映射
 		switch (flags & MAP_TYPE) {
-		//这里隐含了MAP_ANONYMOUS标志
 		case MAP_SHARED:
 			if (vm_flags & (VM_GROWSDOWN|VM_GROWSUP))
 				return -EINVAL;
@@ -1412,7 +1412,7 @@ unsigned long do_mmap(struct file *file, unsigned long addr,
 	return addr;
 }
 /*****************************************************************************************
-系统调用SyS_mmap直接调用此函数
+系统调用 SyS_mmap 直接调用此函数
 //调用do_mmap建立vma结构
 //当app分配较大块的内存时，会调用mmap来分配，而不是通过brk。例如
 malloc(20*1024*1024)
@@ -1447,6 +1447,7 @@ SYSCALL_DEFINE6(mmap_pgoff, unsigned long, addr, unsigned long, len,
 	if (!(flags & MAP_ANONYMOUS)) {
 		audit_mmap_fd(fd, flags);
 		file = fget(fd);
+	//如果不是anon的，必须能找到file
 		if (!file)
 			return -EBADF;
 		if (is_file_hugepages(file))
@@ -1476,7 +1477,7 @@ SYSCALL_DEFINE6(mmap_pgoff, unsigned long, addr, unsigned long, len,
 		if (IS_ERR(file))
 			return PTR_ERR(file);
 	}
-
+	//MAP_EXECUTABLE和MAP_DENYWRITE被忽略，在以前的版本中有用，后面的版本都不支持此参数了
 	flags &= ~(MAP_EXECUTABLE | MAP_DENYWRITE);
 
 	retval = vm_mmap_pgoff(file, addr, len, prot, flags, pgoff);
@@ -1553,7 +1554,7 @@ int vma_wants_writenotify(struct vm_area_struct *vma)
  * We account for memory if it's a private writeable mapping,
  * not hugepages and VM_NORESERVE wasn't set.
  */
- //是否参加统计
+ //是否参加统计，只有private writable的mapping参加统计
 static inline int accountable_mapping(struct file *file, vm_flags_t vm_flags)
 {
 	/*
@@ -1565,7 +1566,7 @@ static inline int accountable_mapping(struct file *file, vm_flags_t vm_flags)
 
 	return (vm_flags & (VM_NORESERVE | VM_SHARED | VM_WRITE)) == VM_WRITE;
 }
-//map，addr只是建议地址，返回值最终实际map的地址.
+
 //map只是建立vma的结构，并不分配内存
 unsigned long mmap_region(struct file *file, unsigned long addr,
 		unsigned long len, vm_flags_t vm_flags, unsigned long pgoff)
@@ -1577,6 +1578,7 @@ unsigned long mmap_region(struct file *file, unsigned long addr,
 	unsigned long charged = 0;
 
 	/* Check against address space limit. */
+	//是否超出能使用空间的最大值？
 	if (!may_expand_vm(mm, vm_flags, len >> PAGE_SHIFT)) {
 		unsigned long nr_pages;
 
@@ -1671,11 +1673,12 @@ unsigned long mmap_region(struct file *file, unsigned long addr,
 		addr = vma->vm_start;
 		vm_flags = vma->vm_flags;
 	} else if (vm_flags & VM_SHARED) {
-		//现在的理解是使用mmap(MAP_ANONYMOUS + MAP_SHARED)会走到这里，不知道是否是这样
+		//mmap(MAP_ANONYMOUS + MAP_SHARED)会走到这里，map一段share的内存，可以与本进程的子进程共享
 		error = shmem_zero_setup(vma);
 		if (error)
 			goto free_vma;
 	}
+	//这里对MAP_ANONYMOUS + MAP_PRIVATE没有做任何处理
 
 	vma_link(mm, vma, prev, rb_link, rb_parent);
 	/* Once vma denies write, undo our temporary denial count */

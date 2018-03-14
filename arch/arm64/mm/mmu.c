@@ -478,13 +478,15 @@ static void __init map_kernel(pgd_t *pgd)
  * maps and sets up the zero page.
  */
  //将能映射的page，映射到PAGE_OFFSET上，线性映射。
+ //此函数之后，内存的准备工作做完，所有的内存都映射到了低端内存中
 void __init paging_init(void)
 {
 	phys_addr_t pgd_phys = early_pgtable_alloc();
 	pgd_t *pgd = pgd_set_fixmap(pgd_phys);
 //map kernel image的pages
 	map_kernel(pgd);
-//map除kernel image之外的其他的pages
+//map除kernel image之外的其他的pages，因为kernel image在上面的map_kernel已经
+//映射过了，所以这里操作之后，所有的内存都映射到了低端内存。
 	map_mem(pgd);
 
 	/*
@@ -495,6 +497,7 @@ void __init paging_init(void)
 	 *
 	 * To do this we need to go via a temporary pgd.
 	 */
+	//将pgd拷贝到swapper_pg_dir
 	cpu_replace_ttbr1(__va(pgd_phys));
 	memcpy(swapper_pg_dir, pgd, PAGE_SIZE);
 	cpu_replace_ttbr1(swapper_pg_dir);
@@ -556,6 +559,7 @@ int __meminit vmemmap_populate(unsigned long start, unsigned long end, int node)
 	return vmemmap_populate_basepages(start, end, node);
 }
 #else	/* !ARM64_SWAPPER_USES_SECTION_MAPS */
+//为(start,end)的空间建立页表，并分配空间，这里start是个section开始的地方，end是一个section结束的地方
 int __meminit vmemmap_populate(unsigned long start, unsigned long end, int node)
 {
 	unsigned long addr = start;
@@ -578,7 +582,7 @@ int __meminit vmemmap_populate(unsigned long start, unsigned long end, int node)
 		pmd = pmd_offset(pud, addr);
 		if (pmd_none(*pmd)) {
 			void *p = NULL;
-
+			//分配空间，分配的是block（2M）为单位的
 			p = vmemmap_alloc_block_buf(PMD_SIZE, node);
 			if (!p)
 				return -ENOMEM;
@@ -624,7 +628,7 @@ static inline pte_t * fixmap_pte(unsigned long addr)
 立地址映射的功能，但是，在内核的启动过程中，有些模块需要使用虚拟内存并
 mapping到指定的物理地址上，而且，这些模块也没有办法等待完整的内存管理模
 块初始化之后再进行地址映射。因此，linux kernel固定分配了一些fixmap的虚
-拟地址，这些地址有固定的用途，使用该地址的模块在初始化的时候，讲这些固
+拟地址，这些地址有固定的用途，使用该地址的模块在初始化的时候，将这些固
 定分配的地址mapping到指定的物理地址上去。
 */
 void __init early_fixmap_init(void)
@@ -650,6 +654,8 @@ void __init early_fixmap_init(void)
 	}
 	pud_populate(&init_mm, pud, bm_pmd);
 	pmd = fixmap_pmd(addr);
+	//将pte设置到对应的pmd，这里bm_pte正好是一个页面
+	//疑问：一个页面应该是不够的啊？为什么只有一个page呢？
 	pmd_populate_kernel(&init_mm, pmd, bm_pte);
 
 	/*

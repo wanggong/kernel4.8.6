@@ -1200,6 +1200,7 @@ static inline unsigned long early_pfn_to_nid(unsigned long pfn)
 #error Allocator MAX_ORDER exceeds SECTION_SIZE
 #endif
 
+//返回pfn对应的section
 #define pfn_to_section_nr(pfn) ((pfn) >> PFN_SECTION_SHIFT)
 #define section_nr_to_pfn(sec) ((sec) << PFN_SECTION_SHIFT)
 
@@ -1221,7 +1222,7 @@ struct mem_section {
 	 * Making it a UL at least makes someone do a cast
 	 * before using it wrong.
 	 */
-//为当前section分配的page的首地址，page是个数组
+//为当前section分配的page的首地址，page是个数组，这里是从0开始算的
 //见 sparse_init
 	unsigned long section_mem_map;
 

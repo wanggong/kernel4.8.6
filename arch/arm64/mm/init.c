@@ -157,6 +157,7 @@ static void __init arm64_memory_present(void)
 {
 }
 #else
+//将memory添加到 mem_section 中
 static void __init arm64_memory_present(void)
 {
 	struct memblock_region *reg;
@@ -320,7 +321,7 @@ void __init bootmem_init(void)
 	 */
 //将已有的memory添加到 mem_section中
 	arm64_memory_present();
-
+//将memory纳入到sparse的管理之中
 	sparse_init();
 	zone_sizes_init(min, max);
 

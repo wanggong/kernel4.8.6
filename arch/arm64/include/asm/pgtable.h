@@ -194,6 +194,8 @@ extern void __sync_icache_dcache(pte_t pteval, unsigned long addr);
  *
  *   PTE_DIRTY || (PTE_WRITE && !PTE_RDONLY)
  */
+ //设置pte，这里会根据dirty和write的软件的标志来设置硬件readonly的标志，
+ //只有在write和dirty标志都设置时，才会设置dirty的标志。
 static inline void set_pte_at(struct mm_struct *mm, unsigned long addr,
 			      pte_t *ptep, pte_t pte)
 {

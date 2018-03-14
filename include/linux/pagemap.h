@@ -242,6 +242,8 @@ struct page *pagecache_get_page(struct address_space *mapping, pgoff_t offset,
  *
  * Otherwise, %NULL is returned.
  */
+//查找offset对应的mapping的cache page，如果不存在而且fgp_flags & FGP_CREAT的话
+//则申请一个page加入到mapping的offset中，这个对于写函数是需要的
 static inline struct page *find_get_page(struct address_space *mapping,
 					pgoff_t offset)
 {

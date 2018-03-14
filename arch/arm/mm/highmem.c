@@ -33,6 +33,13 @@ static inline pte_t get_fixmap_pte(unsigned long vaddr)
 
 	return *ptep;
 }
+/*
+kmap原理：
+在系统启动时，申请一个page作为pte page，然后使一个pmd指向这个page，
+此pmd对应的虚拟地址范围时（PAGE_OFFSET-PMD_SIZE，PAGE_OFFSET），当
+有highmem的page需要映射时，使用kmap将此page的物理地址填到一个pte中，
+返回其虚拟地址即可。
+*/
 
 void *kmap(struct page *page)
 {
@@ -52,6 +59,7 @@ void kunmap(struct page *page)
 }
 EXPORT_SYMBOL(kunmap);
 
+//kmap可以是原子的，因为pte的page已经存在了
 void *kmap_atomic(struct page *page)
 {
 	unsigned int idx;

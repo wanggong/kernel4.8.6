@@ -52,6 +52,8 @@
  * VMEMMAP_SIZE - allows the whole linear region to be covered by
  *                a struct page array
  */
+
+//这里为什么使用的是VA_BITS，难道不应该使用物理地址空间的大小吗？
 #define VMEMMAP_SIZE (UL(1) << (VA_BITS - PAGE_SHIFT - 1 + STRUCT_PAGE_MAX_SHIFT))
 
 /*

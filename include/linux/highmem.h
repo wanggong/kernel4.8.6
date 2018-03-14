@@ -53,6 +53,14 @@ static inline struct page *kmap_to_page(void *addr)
 #define totalhigh_pages 0UL
 
 #ifndef ARCH_HAS_KMAP
+/*
+kmap的使用场景：
+当我们需要向已有的page中写或者从page中读时，由于我们不知道page是
+在高端内存还是位于低端内存，所以不能通过线性映射作为虚拟地址访问，
+这时我们需要先将page映射一下，然后cpu才能访问，这里映射就可以使用
+kmap，如果page是低端内存，kmap直接返回低端内存地址，如果是高端内存，
+则进行映射，然后返回合适的地址。
+*/
 static inline void *kmap(struct page *page)
 {
 	might_sleep();

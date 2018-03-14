@@ -1426,10 +1426,11 @@ static void __init devicemaps_init(const struct machine_desc *mdesc)
 static void __init kmap_init(void)
 {
 #ifdef CONFIG_HIGHMEM
+	//为kmap分配一个page用于存放pte
 	pkmap_page_table = early_pte_alloc(pmd_off_k(PKMAP_BASE),
 		PKMAP_BASE, _PAGE_KERNEL_TABLE);
 #endif
-
+	//位fixed map也分配一个
 	early_pte_alloc(pmd_off_k(FIXADDR_START), FIXADDR_START,
 			_PAGE_KERNEL_TABLE);
 }

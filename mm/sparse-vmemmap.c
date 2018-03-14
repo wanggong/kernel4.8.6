@@ -265,7 +265,7 @@ struct page * __meminit sparse_mem_map_populate(unsigned long pnum, int nid)
 
 	return map;
 }
-
+//为(pnum_begin,pnum_end)的section分配memmap
 void __init sparse_mem_maps_populate_node(struct page **map_map,
 					  unsigned long pnum_begin,
 					  unsigned long pnum_end,
@@ -276,6 +276,8 @@ void __init sparse_mem_maps_populate_node(struct page **map_map,
 	void *vmemmap_buf_start;
 
 	size = ALIGN(size, PMD_SIZE);
+	//为什么这里要先分配，然后释放？
+	//后面在alloc_block_buf中会使用
 	vmemmap_buf_start = __earlyonly_bootmem_alloc(nodeid, size * map_count,
 			 PMD_SIZE, __pa(MAX_DMA_ADDRESS));
 
@@ -289,7 +291,7 @@ void __init sparse_mem_maps_populate_node(struct page **map_map,
 
 		if (!present_section_nr(pnum))
 			continue;
-
+		//为vmemmap分配内存
 		map_map[pnum] = sparse_mem_map_populate(pnum, nodeid);
 		if (map_map[pnum])
 			continue;
