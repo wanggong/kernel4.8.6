@@ -160,6 +160,7 @@ enum node_stat_item {
 	WORKINGSET_REFAULT,
 	WORKINGSET_ACTIVATE,
 	WORKINGSET_NODERECLAIM,
+	//anon page map的数量，在do_anonymous_page->page_add_new_anon_rmap路径中被调用。
 	NR_ANON_MAPPED,	/* Mapped anonymous pages */
 	NR_FILE_MAPPED,	/* pagecache pages mapped into pagetables.
 			   only modified from process context */
@@ -237,7 +238,8 @@ struct zone_reclaim_stat {
 	unsigned long		recent_rotated[2];
 	unsigned long		recent_scanned[2];
 };
-
+//least recent useage
+//是否是只有user分配的页面才会进入lru，目前理解是这样的
 struct lruvec {
 	struct list_head		lists[NR_LRU_LISTS];
 	struct zone_reclaim_stat	reclaim_stat;
@@ -278,7 +280,9 @@ enum zone_watermarks {
 
 struct per_cpu_pages {
 	int count;		/* number of pages in the list */
+	//high=6*batch
 	int high;		/* high watermark, emptying needed */
+	//batch=总内存的0.025%
 	int batch;		/* chunk size for buddy add/remove */
 
 	/* Lists of pages, one per migrate type stored on the pcp-lists */
@@ -484,6 +488,7 @@ lowmem_reserve是可以通过/proc/sys/vm/lowmem_reserve_ratio设置的
 	 * adjust_managed_page_count() should be used instead of directly
 	 * touching zone->managed_pages and totalram_pages.
 	 */
+	//此zone所管理的page，不包括reserved的，见 __free_pages_boot_core
 	unsigned long		managed_pages;
 	//此zone跨越的pages个数，包括空洞，见 calculate_node_totalpages
 	unsigned long		spanned_pages;
@@ -691,6 +696,8 @@ struct zoneref {
  * zonelist_node_idx()	- Return the index of the node for an entry
  */
 struct zonelist {
+//node_zonelists是按照nodeid和zone_idx的顺序从大到小排列的，从当前node开始遍历所有的node，
+//按照zone_idx从大到小的顺序添加到	_zonerefs中
 	struct zoneref _zonerefs[MAX_ZONES_PER_ZONELIST + 1];
 };
 
@@ -714,8 +721,8 @@ struct bootmem_data;
 typedef struct pglist_data {
 	struct zone node_zones[MAX_NR_ZONES];
 /*******************************************************************************
-//node_zonelists是按照zone_idx的顺序从大到小排列的，第一个是zone_idx最大的zone    
-//见build_zonelists_node   
+//node_zonelists是按照nodeid和zone_idx的顺序从大到小排列的，从当前node开始遍历所有的node，
+按照zone_idx从大到小的顺序添加到    _zonerefs中，见build_zonelists_node   
 //所以在node_zones中的排序是
 内存分配是这样查找的:
 首先通过函数gfp_zone(gfp_mask)，根据gfp_mask找到对应zone_type，根据内存的申请规则，
@@ -815,7 +822,7 @@ zone在一块，按从大到小排列。
 #endif
 
 	/* Fields commonly accessed by the page reclaim scanner */
-//lru的链表
+//是否是只有user分配的页面才会进入lru，目前理解是这样的
 	struct lruvec		lruvec;
 
 	/*

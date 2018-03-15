@@ -25,15 +25,25 @@
  * pointing to this anon_vma once its vma list is empty.
  */
 /******************************************************************
-这里理解还有点难度，整理一下如下
-需求:
-1. 每个页面只能指向一个anon_vma
-2. 当fock一个进程时(A->B)，使用cow技术，使得一个页面属于两个进程
-这就要求在A和B需要都能指向同一个anon_vma，于是添加了一个数据结构anon_vma_chain，
-这个数据结构是挂在anon_vma->rb_root上，每一个都在不同的进程中。这就解决了问题2.
-3. 按照上面的是下，同一个vm_area_struct就需要指向多个anon_vma，这个通过
-vm_area_struct->anon_vma_chain连接到anon_vma_chain->same_vma来实现
-另外，目前的设计是每个vm_area_struct都有一个anon_vma
+终于理清了rmap的关系：
+1. 对于file rmap，因为所有以file为背景的内存都只能是共享的(不能共享的会转入anon管理)，
+	所以file rmap可以比较简单，只需要在mapping.immap链接上所有的vma_area即可。
+2. 对于anon rmap，难点在于cow机制。具体实现如下：
+	a. 每个anon的page->mapping指向一个anon_vma
+	b. 所有映射到此page的虚拟地址都应该能通过anon_vma找到，这一点通过anon_vma.rb_root
+		来实现，anon_vma.rb_root保存的是anon_vma_chain，anon_vma_chain有指向一个
+		vm_area_struct。
+		考虑下面场景：
+		01. 进程A fork一个进程B，进程B会拷贝进程A的vm_area_struct，此时会创建
+		一个anon_vma_chain将B的vm_area_struct添加到A的anon_vma.rb_root，这样共享的page
+		才能rmap出进程B的pte。进程B还会创建自己的anon_vma，并连接自己的vm_area_struct。
+		02. 然后进程B写一个页面，此时会执行COW分配一个页面给进程B，此页面会执行进程B的anon_vma，
+		03. 之后进程B fork 一个进程C，考虑进程C中页面的使用情况，
+			a. 可能是进程A分配的，进程B没有改写，所有进程A的anon_vma需要能找到C的vm_area_struct，
+				同理进程B也需要能找到C的vm_area_struct，所以就需要将进程C的vm_area_struct分别
+				添加到进程A和B的anon_vma中。
+		综合上面，就是说父进程必须能找到子进程的vm_area_struct
+		（上面不是很准确，假设是一个进程只有一个vm_area_struct）
 ******************************************************************/
 
 struct anon_vma {

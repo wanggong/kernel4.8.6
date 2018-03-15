@@ -102,6 +102,9 @@ static void __init zone_sizes_init(unsigned long min, unsigned long max)
 
 #else
 
+//初始化pgdat的zone，计算pgdat中zonefreepage的大小，初始化各个zone，初始化
+//各个zone中的page，将所有的pageblock标记为movable，此时还不会将page添加到
+//zone->free_area[order]中来，仅仅是初始化zone的参数。
 static void __init zone_sizes_init(unsigned long min, unsigned long max)
 {
 	struct memblock_region *reg;
@@ -111,6 +114,7 @@ static void __init zone_sizes_init(unsigned long min, unsigned long max)
 	memset(zone_size, 0, sizeof(zone_size));
 
 	/* 4GB maximum for 32-bit only capable devices */
+	//在1881上，zone_size[ZONE_DMA]=max-min,zone_size[ZONE_NORMAL]=0
 #ifdef CONFIG_ZONE_DMA
 	max_dma = PFN_DOWN(arm64_dma_phys_limit);
 	zone_size[ZONE_DMA] = max_dma - min;
@@ -303,6 +307,14 @@ void __init arm64_memblock_init(void)
 	memblock_allow_resize();
 }
 
+/*
+这个函数所作的工作如下：
+1. 根据mem_block的情况构建memblock_region，
+2. 分配管理page的vmemmap和migrate type
+3. 初始化pg_data_t，以及各个zone的数据，只是没有将page放入到zone->free_area[order]
+基本上这里做的就是建立了buddy管理的所有初始化，后面只需要将page释放到zone->free_area[order]
+中buddy系统就可以开始工作了。
+*/
 void __init bootmem_init(void)
 {
 	unsigned long min, max;
@@ -321,8 +333,12 @@ void __init bootmem_init(void)
 	 */
 //将已有的memory添加到 mem_section中
 	arm64_memory_present();
-//将memory纳入到sparse的管理之中
+//将memory纳入到sparse的管理之中，初始化vmempage和migrate flags等
 	sparse_init();
+
+//初始化pgdat的zone，计算pgdat中zonefreepage的大小，初始化各个zone，初始化
+//各个zone中的page，将所有的pageblock标记为movable，此时还不会将page添加到
+//zone->free_area[order]中来，仅仅是初始化zone的参数。
 	zone_sizes_init(min, max);
 
 	high_memory = __va((max << PAGE_SHIFT) - 1) + 1;
@@ -402,6 +418,8 @@ static void __init free_unused_memmap(void)
  * is free.  This is done after various parts of the system have claimed their
  * memory after the kernel image.
  */
+//将memblock.reserved.regions中的页标记为已分配SetPageReserved(page)，将存在于
+//memblock.memory.regions不存在memblock.reserved.regions中的页释放到伙伴系统。
 void __init mem_init(void)
 {
 	if (swiotlb_force || max_pfn > (arm64_dma_phys_limit >> PAGE_SHIFT))

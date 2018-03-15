@@ -29,7 +29,7 @@ struct pglist_data __refdata contig_page_data = {
 };
 EXPORT_SYMBOL(contig_page_data);
 #endif
-
+//在arm64中，max_low_pfn==max_pfn，均是内存的最大pfn
 unsigned long max_low_pfn;
 unsigned long min_low_pfn;
 unsigned long max_pfn;

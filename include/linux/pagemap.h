@@ -404,7 +404,7 @@ static inline loff_t page_file_offset(struct page *page)
 extern pgoff_t linear_hugepage_index(struct vm_area_struct *vma,
 				     unsigned long address);
 
-//返回addr相对于文件的pgoff
+//返回addr相对于文件的pgoff，对于anon的映射总是返回此page在其vma中的offset
 static inline pgoff_t linear_page_index(struct vm_area_struct *vma,
 					unsigned long address)
 {

@@ -168,8 +168,7 @@ static void anon_vma_chain_link(struct vm_area_struct *vma,
  * This must be called with the mmap_sem held for reading.
  */
 //分配 anon_vma 和 anon_vma_chain，将他们和vm_area_struct链接起来
-//从下面的实现可以猜测:anon_vma必定对应一个vm_area_struct，而vm_area_struct
-//不一定有anon_vma
+//简单的理解是：一个vm_area_struct 对应一个anon_vma
 int anon_vma_prepare(struct vm_area_struct *vma)
 {
 	struct anon_vma *anon_vma = vma->anon_vma;
@@ -258,6 +257,10 @@ static inline void unlock_anon_vma_root(struct anon_vma *root)
  * good chance of avoiding scanning the whole hierarchy when it searches where
  * page is mapped.
  */
+/*
+此函数会被anon_vma_fork调用,
+此函数的功能是：将dst添加到其所有的上层anon_vma，就是添加到其父进程，祖父进程，曾祖父.....的anon_vma中
+*/
 int anon_vma_clone(struct vm_area_struct *dst, struct vm_area_struct *src)
 {
 	struct anon_vma_chain *avc, *pavc;
@@ -337,6 +340,7 @@ int anon_vma_fork(struct vm_area_struct *vma, struct vm_area_struct *pvma)
 	if (vma->anon_vma)
 		return 0;
 
+//下面的代码是创建本vma自己的anon_vma
 	/* Then add our own anon_vma. */
 	anon_vma = anon_vma_alloc();
 	if (!anon_vma)
@@ -1148,7 +1152,7 @@ static void __page_set_anon_rmap(struct page *page,
 	 * we must use the _oldest_ possible anon_vma for the
 	 * page mapping!
 	 */
-//为什么要使用root?	 
+//什么情况下 exclusive 会是0？
 	if (!exclusive)
 		anon_vma = anon_vma->root;
 
@@ -1263,8 +1267,11 @@ void do_page_add_anon_rmap(struct page *page,
  * Page does not have to be locked.
  */
 
- //设置page的anon方面的信息
- //着重关注do_anonymous_page对此函数的调用
+ /*
+ 设置page的anon方面的信息
+ 将page->mapping这只为当前的vma对应的anon_vma，或 root anon_vma
+ 此函数会被do_anonymous_page调用
+ */
 void page_add_new_anon_rmap(struct page *page,
 	struct vm_area_struct *vma, unsigned long address, bool compound)
 {
@@ -1281,6 +1288,8 @@ void page_add_new_anon_rmap(struct page *page,
 		/* Anon THP always mapped first with PMD */
 		VM_BUG_ON_PAGE(PageTransCompound(page), page);
 		/* increment count (starts at -1) */
+		//为什么不是加一而是设置为0，此函数只在第一次fault时被调用？
+		//是的，只有第一次fault才会走到这里
 		atomic_set(&page->_mapcount, 0);
 	}
 	__mod_node_page_state(page_pgdat(page), NR_ANON_MAPPED, nr);

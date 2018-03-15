@@ -1175,6 +1175,15 @@ void *vm_map_ram(struct page **pages, unsigned int count, int node, pgprot_t pro
 }
 EXPORT_SYMBOL(vm_map_ram);
 
+/*
+内存空间管理分为用户空间和内核空间：
+1. 用户空间通过 vm_area_struct 管理，每个进程管理自己的。
+2. kernel的空间主要分成两部分：
+	a：vmalloc对应的空间，这部分通过 vm_struct 管理。
+	b：线性地址空间，这部分空间在系统启动时映射对应的低端物理内存，
+		不需要也没有对应的管理的数据结构。
+*/
+
 static struct vm_struct *vmlist __initdata;
 /**
  * vm_area_add_early - add vmap area early during boot
@@ -1186,6 +1195,7 @@ static struct vm_struct *vmlist __initdata;
  *
  * DO NOT USE THIS FUNCTION UNLESS YOU KNOW WHAT YOU'RE DOING.
  */
+ //将 vm 添加到vm_struct中。
 void __init vm_area_add_early(struct vm_struct *vm)
 {
 	struct vm_struct *tmp, **p;

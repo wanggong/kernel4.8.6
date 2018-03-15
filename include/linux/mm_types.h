@@ -74,7 +74,8 @@ struct page {
 
 	/* Second double word */
 	union {
-//对文件cache有用，表示此page在文件的offset	
+//对文件cache有用，表示此page在文件的offset	，
+//对于anon的page，表示此page在其vma(第一个映射此page的vma)中的offset，好像没什么用
 		pgoff_t index;		/* Our offset within mapping. */
 		void *freelist;		/* sl[aou]b first free object */
 		/* page_deferred_list().prev	-- second tail page */
@@ -110,7 +111,7 @@ struct page {
 //多个pte中，这个字段就是用来统计page映射到了多少个pte中。
 //这个在share memory或COW过程中很有用，当mapcount大于零时表示有多个进程map到此page，需要进行cow
 //操作，当mapcount==0时，表示现在只有一个进程使用了，可以直接修改pte的值，不需要分配页然后拷贝了。
-
+//这个字段在初始化时设置为-1
 				atomic_t _mapcount;
 
 				unsigned int active;		/* SLAB */
@@ -126,6 +127,8 @@ struct page {
 			 * accounting. See page_ref.h
 			 */
 //此page的引用计数，见get_page和put_page			 
+//在第一次加入buddy系统是被设置为0，见__free_pages_boot_core，所以0应该表示free的，
+//这个参数表示page是否可以free，只有当 _refcount=0 时才能free
 			atomic_t _refcount;
 		};
 	};
@@ -393,6 +396,9 @@ rb_subtree_last是用于加快search的速度。这是一种对范围搜索的手段。
 	 * or brk vma (with NULL file) can only be in an anon_vma list.
 	 */
 //链接avc->same_vma	 
+//这个head的意义是链接此vm_area_struct和其父、祖父、曾祖父的vma_chain，
+//因为当fork时需要将子进程的vm_area_struct添加到各个上级vma_anon中，所以
+//才需要在这里保留当前vm_area_struct的所有上级chain。
 	struct list_head anon_vma_chain; /* Serialized by mmap_sem &
 					  * page_table_lock */
 //此字段是在用户分配内存之后，第一次访问时分配的，见do_anonymous_page                        
@@ -404,7 +410,10 @@ rb_subtree_last是用于加快search的速度。这是一种对范围搜索的手段。
 	const struct vm_operations_struct *vm_ops;
 
 	/* Information about our backing store: */
-//vm_start对应文件中的偏移    
+//vm_start对应文件中的偏移，用于计算一个page在此vma中对应的地址   
+//对于file mapped page，page->index表示的是映射到文件内的偏移（Byte为单位），
+//而vma->vm_pgoff表示的是该VMA映射到文件内的偏移（page为单位）
+
 	unsigned long vm_pgoff;		/* Offset (within vm_file) in PAGE_SIZE
 //vma map的file					   units */
 	struct file * vm_file;		/* File we map to (can be NULL). */

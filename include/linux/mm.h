@@ -42,7 +42,7 @@ static inline void set_max_mapnr(unsigned long limit)
 #else
 static inline void set_max_mapnr(unsigned long limit) { }
 #endif
-
+//系统所有的可用内存，已经减去了reserved的内存，见 free_all_bootmem
 extern unsigned long totalram_pages;
 extern void * high_memory;
 extern int page_cluster;

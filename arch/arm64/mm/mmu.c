@@ -319,7 +319,9 @@ static void create_mapping_late(phys_addr_t phys, unsigned long virt,
 			     NULL, !debug_pagealloc_enabled());
 }
 
-//map所有的其他的memory
+//map(start,end)的memory
+//将不属于text/rodata的内存映射为可读写的
+//将属于text/rodata的内存映射为只读的
 static void __init __map_memblock(pgd_t *pgd, phys_addr_t start, phys_addr_t end)
 {
 	unsigned long kernel_start = __pa(_text);
@@ -343,6 +345,7 @@ static void __init __map_memblock(pgd_t *pgd, phys_addr_t start, phys_addr_t end
 	 * This block overlaps the kernel text/rodata mappings.
 	 * Map the portion(s) which don't overlap.
 	 */
+//将不属于text/rodata的内存映射为可读写的
 	if (start < kernel_start)
 		__create_pgd_mapping(pgd, start,
 				     __phys_to_virt(start),
@@ -362,12 +365,16 @@ static void __init __map_memblock(pgd_t *pgd, phys_addr_t start, phys_addr_t end
 	 * region accessible to subsystems such as hibernate, but
 	 * protects it from inadvertent modification or execution.
 	 */
+//将属于text/rodata的内存映射为只读的
 	__create_pgd_mapping(pgd, kernel_start, __phys_to_virt(kernel_start),
 			     kernel_end - kernel_start, PAGE_KERNEL_RO,
 			     early_pgtable_alloc, !debug_pagealloc_enabled());
 }
 
-//map所有的其他的memory
+//map所有的低端memory，即将 x 映射到 __phys_to_virt(x)
+//map(start,end)的memory
+//将不属于text/rodata的内存映射为可读写的
+//将属于text/rodata的内存映射为只读的
 static void __init map_mem(pgd_t *pgd)
 {
 	struct memblock_region *reg;
@@ -412,6 +419,8 @@ void fixup_init(void)
 	unmap_kernel_range((u64)__init_begin, (u64)(__init_end - __init_begin));
 }
 
+//map kernel代码或数据vaddr和paddr，需要注意的是，在编译时这些地址被编译到vmalloc地址
+//空间的范围内，所以需要将其添加到vm_struct中。
 static void __init map_kernel_segment(pgd_t *pgd, void *va_start, void *va_end,
 				      pgprot_t prot, struct vm_struct *vma)
 {
@@ -429,18 +438,26 @@ static void __init map_kernel_segment(pgd_t *pgd, void *va_start, void *va_end,
 	vma->size	= size;
 	vma->flags	= VM_MAP;
 	vma->caller	= __builtin_return_address(0);
-
+//将其添加到vm_struct中。
 	vm_area_add_early(vma);
 }
 
 /*
  * Create fine-grained mappings for the kernel.
  */
-//将kernel自身的代码和数据map到PAGE_OFFSET上
+/*
+将kernel自身的代码和数据map到对应的虚拟地址
+注意：
+1.	这里的虚拟地址不是kernel的线性映射区，是编译时指定的虚拟地址，定义
+	在vmlinux.lds.S文件中，例如text映射到 KIMAGE_VADDR + TEXT_OFFSET(line-109),
+	在1861上对应的地址是： .text : 0xffffff8008080000 - 0xffffff8008b00000   ( 10752 KB)
+	所有映射的kernel的vaddr都是位于vmalloc空间的，所以要将其加到vm_struct中，以免后面重用。
+2.	这里将所有的都映射为可读写的，为啥？
+*/
 static void __init map_kernel(pgd_t *pgd)
 {
 	static struct vm_struct vmlinux_text, vmlinux_rodata, vmlinux_init, vmlinux_data;
-
+//这里映射的都是可读写的，为啥？
 	map_kernel_segment(pgd, _text, _etext, PAGE_KERNEL_EXEC, &vmlinux_text);
 	map_kernel_segment(pgd, __start_rodata, __init_begin, PAGE_KERNEL, &vmlinux_rodata);
 	map_kernel_segment(pgd, __init_begin, __init_end, PAGE_KERNEL_EXEC,
@@ -477,16 +494,21 @@ static void __init map_kernel(pgd_t *pgd)
  * paging_init() sets up the page tables, initialises the zone memory
  * maps and sets up the zero page.
  */
- //将能映射的page，映射到PAGE_OFFSET上，线性映射。
- //此函数之后，内存的准备工作做完，所有的内存都映射到了低端内存中
+ /*
+重建内核页表
+这里有一点很奇怪的地方，在 map_kernel （映射区域是vmalloc）中将代码段和只读段映射成了可读写的，
+但是在之后通过 map_mem 函数线性映射时，将代码段和只读段映射为了只读的，为什么要这么做？
+ */
+ 
 void __init paging_init(void)
 {
 	phys_addr_t pgd_phys = early_pgtable_alloc();
 	pgd_t *pgd = pgd_set_fixmap(pgd_phys);
 //map kernel image的pages
 	map_kernel(pgd);
-//map除kernel image之外的其他的pages，因为kernel image在上面的map_kernel已经
-//映射过了，所以这里操作之后，所有的内存都映射到了低端内存。
+//映射所有的低端内存。
+//将不属于text/rodata的内存映射为可读写的
+//将属于text/rodata的内存映射为只读的
 	map_mem(pgd);
 
 	/*
@@ -630,6 +652,12 @@ mapping到指定的物理地址上，而且，这些模块也没有办法等待完整的内存管理模
 块初始化之后再进行地址映射。因此，linux kernel固定分配了一些fixmap的虚
 拟地址，这些地址有固定的用途，使用该地址的模块在初始化的时候，将这些固
 定分配的地址mapping到指定的物理地址上去。
+
+fixmap存在的一个原因是，现在已经映射的只是在kernel中静态分配的空间，不在
+kernel中静态分配的空间是没有映射的，现在假设我们需要一个page，动态分配了
+一个page，现在我们没有办法去写这个page，因为我们没法将其映射到虚拟地址，
+我们想为pmd，pte分配也存在同样的问题。
+
 */
 void __init early_fixmap_init(void)
 {

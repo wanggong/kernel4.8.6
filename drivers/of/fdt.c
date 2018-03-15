@@ -1019,6 +1019,7 @@ u64 __init dt_mem_next_cell(int s, const __be32 **cellp)
 /**
  * early_init_dt_scan_memory - Look for an parse memory nodes
  */
+ //扫描fdt的memory的设置，将其添加到memory的region中
 int __init early_init_dt_scan_memory(unsigned long node, const char *uname,
 				     int depth, void *data)
 {

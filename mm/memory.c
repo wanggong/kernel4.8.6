@@ -95,6 +95,7 @@ EXPORT_SYMBOL(mem_map);
  * highstart_pfn must be the same; there must be no gap between ZONE_NORMAL
  * and ZONE_HIGHMEM.
  */
+//根据内存pfn计算出来的，kernel线性空间的最大地址。
 void * high_memory;
 
 EXPORT_SYMBOL(high_memory);

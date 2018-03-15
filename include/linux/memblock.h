@@ -41,10 +41,23 @@ struct memblock_type {
 	unsigned long cnt;	/* number of regions */
 	unsigned long max;	/* size of the allocated array */
 	phys_addr_t total_size;	/* size of all regions */
-	//regions是按照base的顺序排列的。
+	//regions是按照base的顺序排列的，如果能合并(flag也需要一样)的就会合并到一块
+	//见 memblock_add_range，
 	struct memblock_region *regions;
 };
 
+/*
+这个数据结构在buddy系统接管内存之前负责内存的管理工作，其工作原理如下：
+0. memory和reserved这两个region都是按升序排列的。
+1. 所有的内存都保存在memory这个region中，已分配的内存也不会从这个region中移除。
+2. 所有已分配的内存都保留在reserved这个region中，当需要分配一段内存时，仅仅将这
+	一段内存的其实地址和大小加入到reserved这个region中，当释放内存时也仅仅是将
+	内存从reserved中移除。不牵涉到memory这个region。
+3. 根据1和2，实际未分配的内存是memory-reserved。
+4. 申请内存的函数是 memblock_alloc(size,align) ，其算法是找到一段空间在memory的region而不在reserved的region中。
+	然后将其添加到reserved的region中。
+5. 释放内存的函数是 memblock_free(base,size) ，这个函数的处理很简单，直接将reserved的一段移除即可。
+*/
 struct memblock {
 	bool bottom_up;  /* is bottom up direction? */
 	phys_addr_t current_limit;
@@ -145,6 +158,7 @@ void __next_reserved_mem_region(u64 *idx, phys_addr_t *out_start,
  * @p_end: ptr to phys_addr_t for end address of the range, can be %NULL
  * @p_nid: ptr to int for nid of the range, can be %NULL
  */
+//查找一段空间在type_a中，但是不包含的type_b中，在申请内存时使用
 #define for_each_mem_range_rev(i, type_a, type_b, nid, flags,		\
 			       p_start, p_end, p_nid)			\
 	for (i = (u64)ULLONG_MAX,					\

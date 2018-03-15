@@ -134,6 +134,10 @@ KERNEL_START是kernel开始运行的虚拟地址，更确切的说是内核正文段开始的虚拟地址。
  * private definitions which should NOT be used outside memory.h
  * files.  Use virt_to_phys/phys_to_virt/__pa/__va instead.
  */
+
+//这里我们能看到 __virt_to_phys 和 __phys_to_virt 是不对称的，因为kernel image
+//的部分被映射了两次一次在vmalloc区域，offset是kimage_voffset，另一次是被映射到
+//了线性映射区，offset是PAGE_OFFSET
 #define __virt_to_phys(x) ({						\
 	phys_addr_t __x = (phys_addr_t)(x);				\
 	__x & BIT(VA_BITS - 1) ? (__x & ~PAGE_OFFSET) + PHYS_OFFSET :	\

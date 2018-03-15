@@ -133,8 +133,10 @@ static unsigned long __init free_low_memory_core_early(void)
 	memblock_clear_hotplug(0, -1);
 
 	for_each_reserved_mem_region(i, &start, &end)
+	//将reserve page的pageflags为 PG_reserved
+	//还有就是设置page->_refcount=1，page->_mapcount=-1；表示此页面已经分配出去，但是没有map到pte
 		reserve_bootmem_region(start, end);
-//将memblock中的free的page释放到zone的freelist中。
+//将memblock中的free(memory-reserved)的page释放到zone的freelist中。
 	for_each_free_mem_range(i, NUMA_NO_NODE, MEMBLOCK_NONE, &start, &end,
 				NULL)
 		count += __free_memory_core(start, end);
@@ -167,7 +169,7 @@ void reset_node_managed_pages(pg_data_t *pgdat)
 	for (z = pgdat->node_zones; z < pgdat->node_zones + MAX_NR_ZONES; z++)
 		z->managed_pages = 0;
 }
-
+//将所有z->managed_pages设为0
 void __init reset_all_zones_managed_pages(void)
 {
 	struct pglist_data *pgdat;

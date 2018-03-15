@@ -440,6 +440,7 @@ struct address_space {
 	atomic_t		i_mmap_writable;/* count VM_SHARED mappings */
 //链接和此mapping相关的vma,不同进程的vma都会链接到这里
 //注意:vm_area_struct是属于进程的，而address_space是属于某个文件的，由kernel管理，不属于任何进程
+//这个保存此vma是为了进行反向映射，方法是page->address_space->vma->pte,见 vma_address
 	struct rb_root		i_mmap;		/* tree of private and shared mappings */
 	struct rw_semaphore	i_mmap_rwsem;	/* protect tree, count, list */
 	/* Protected by tree_lock together with the radix tree */

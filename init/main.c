@@ -468,6 +468,8 @@ static void __init mm_init(void)
 	 * bigger than MAX_ORDER unless SPARSEMEM.
 	 */
 	page_ext_init_flatmem();
+//将memblock.reserved.regions中的页标记为已分配SetPageReserved(page)，将存在于
+//memblock.memory.regions不存在memblock.reserved.regions中的页释放到伙伴系统。
 	mem_init();
 	kmem_cache_init();
 	percpu_init_late();
@@ -514,7 +516,9 @@ asmlinkage __visible void __init start_kernel(void)
 	setup_per_cpu_areas();
 	boot_cpu_state_init();
 	smp_prepare_boot_cpu();	/* arch-specific boot-cpu hooks */
-
+	
+//node_zonelists是按照nodeid和zone_idx的顺序从大到小排列的，从当前node开始遍历所有的node，
+//按照zone_idx从大到小的顺序添加到	_zonerefs中
 	build_all_zonelists(NULL, NULL);
 	page_alloc_init();
 
@@ -539,6 +543,12 @@ asmlinkage __visible void __init start_kernel(void)
 	vfs_caches_init_early();
 	sort_main_extable();
 	trap_init();
+/*
+完成内存初始化的最后动作，包括
+1. 将memblock.reserved.regions中的页标记为已分配SetPageReserved(page)，将存在于
+	memblock.memory.regions不存在memblock.reserved.regions中的页释放到伙伴系统。
+2. 
+*/
 	mm_init();
 
 	/*
@@ -615,6 +625,7 @@ asmlinkage __visible void __init start_kernel(void)
 	page_ext_init();
 	debug_objects_mem_init();
 	kmemleak_init();
+//这里才真正初始化percpu变量，是否意味着在这之前都是一个cpu在跑？
 	setup_per_cpu_pageset();
 	numa_policy_init();
 	if (late_time_init)

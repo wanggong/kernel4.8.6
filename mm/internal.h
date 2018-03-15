@@ -338,13 +338,15 @@ __vma_address(struct page *page, struct vm_area_struct *vma)
 	return vma->vm_start + ((pgoff - vma->vm_pgoff) << PAGE_SHIFT);
 }
 
-//返回page在vma中的地址
+//返回page在vma中的地址，使用的地方在 rmap_walk_file
 static inline unsigned long
 vma_address(struct page *page, struct vm_area_struct *vma)
 {
 	unsigned long address = __vma_address(page, vma);
 
 	/* page should be within @vma mapping range */
+	//如果vma.m_pgoff>page.index,是会出现address < vma->vm_start的状况的啊，这种情况应该是正常的，为什么
+	//是bug呢？哪里理解不对？
 	VM_BUG_ON_VMA(address < vma->vm_start || address >= vma->vm_end, vma);
 
 	return address;

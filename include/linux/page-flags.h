@@ -78,6 +78,8 @@ enum pageflags {
 //表示此page被访问到了	
 	PG_referenced,
 	PG_uptodate,
+//dirty的概念是和后备文件系统(包括swap)相联系的，当内存中的内容被写时(就会和磁盘的内容不一致)，
+//就设置page的dirty标志，anon(还没有被swap的)的页面是没有dirty概念的。
 	PG_dirty,
 //表示page被加入到了lru中	
 	PG_lru,
@@ -86,7 +88,13 @@ enum pageflags {
 	PG_slab,
 	PG_owner_priv_1,	/* Owner use. If pagecache, fs may use*/
 	PG_arch_1,
-//reserved，此类page是不能换出的	
+/*
+reserved，此类page是不能换出的	
+属于这部分内存的有:
+1. 在buddy内存管理开始运作之前分配的所有的内存，这些都存都是从memblock的
+	reserved_mem直接标记为 PG_reserved。
+	
+*/
 	PG_reserved,
 //表示此page的private字段是有内容的，例如fs会将buffer_head放在page的private字段	
 	PG_private,		/* If pagecache, has fs-private data */
@@ -96,7 +104,9 @@ enum pageflags {
 	PG_swapcache,		/* Swap page: swp_entry_t in private */
 	PG_mappedtodisk,	/* Has blocks allocated on-disk */
 	PG_reclaim,		/* To be reclaimed asap */
-//此page属于swap的page，包括应用的堆，栈等都属于此	
+//此page属于swap的page，包括应用的堆，栈等都属于此,
+//在anon的pagefault是会对anon页面设置此标志，调用路径
+//do_anonymous_page->page_add_new_anon_rmap->__SetPageSwapBacked
 	PG_swapbacked,		/* Page is backed by RAM/swap */
 //此page已经被加入和将要加入unevictable 的list	
 	PG_unevictable,		/* Page is "unevictable"  */

@@ -110,7 +110,9 @@ enum vm_event_item {
   PGALLOC_DMA, PGALLOC_DMA32, PGALLOC_NORMAL, PGALLOC_MOVABLE,
   ALLOCSTALL_DMA, ALLOCSTALL_DMA32, ALLOCSTALL_NORMAL, ALLOCSTALL_MOVABLE,
   PGSCAN_SKIP_DMA, PGSCAN_SKIP_DMA32, PGSCAN_SKIP_NORMAL, PGSCAN_SKIP_MOVABLE,
-  PGFREE, PGACTIVATE, PGDEACTIVATE,
+  //free的page的个数，见__free_pages_ok
+  PGFREE, 
+  PGACTIVATE, PGDEACTIVATE,
   //系统出现pagefault的次数，在 handle_mm_fault 中加一
   PGFAULT, 
   //文件为背景的pagefault，在文件cache中没有查到对应的page，需要申请page，然后

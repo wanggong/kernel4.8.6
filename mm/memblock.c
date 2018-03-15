@@ -25,8 +25,8 @@
 
 #include "internal.h"
 
-static struct memblock_region memblock_memory_init_regions[INIT_MEMBLOCK_REGIONS] __initdata_memblock;
-static struct memblock_region memblock_reserved_init_regions[INIT_MEMBLOCK_REGIONS] __initdata_memblock;
+static struct memblock_region memblock_memory_init_regions[INIT_MEMBLOCK_REGIONS] ;//__initdata_memblock;
+static struct memblock_region memblock_reserved_init_regions[INIT_MEMBLOCK_REGIONS] ;//__initdata_memblock;
 #ifdef CONFIG_HAVE_MEMBLOCK_PHYS_MAP
 static struct memblock_region memblock_physmem_init_regions[INIT_PHYSMEM_REGIONS] __initdata_memblock;
 #endif
@@ -151,6 +151,7 @@ __memblock_find_range_bottom_up(phys_addr_t start, phys_addr_t end,
  * RETURNS:
  * Found address on success, 0 on failure.
  */
+//查找一段空间在type_a中，但是不包含的type_b中，在申请内存时使用
 static phys_addr_t __init_memblock
 __memblock_find_range_top_down(phys_addr_t start, phys_addr_t end,
 			       phys_addr_t size, phys_addr_t align, int nid,
@@ -197,6 +198,7 @@ __memblock_find_range_top_down(phys_addr_t start, phys_addr_t end,
  * RETURNS:
  * Found address on success, 0 on failure.
  */
+//查找一段大小为size的空间在type_a中，但是不包含的type_b中，在申请内存时使用
 phys_addr_t __init_memblock memblock_find_in_range_node(phys_addr_t size,
 					phys_addr_t align, phys_addr_t start,
 					phys_addr_t end, int nid, ulong flags)
@@ -485,7 +487,7 @@ static void __init_memblock memblock_merge_regions(struct memblock_type *type)
  * Insert new memblock region [@base,@base+@size) into @type at @idx.
  * @type must already have extra room to accommodate the new region.
  */
- //将base插入到type的idx region
+ //将base插入到type的idx region,以便保持region是从小到大的顺序的
 static void __init_memblock memblock_insert_region(struct memblock_type *type,
 						   int idx, phys_addr_t base,
 						   phys_addr_t size,
@@ -519,6 +521,9 @@ static void __init_memblock memblock_insert_region(struct memblock_type *type,
  * RETURNS:
  * 0 on success, -errno on failure.
  */
+/*
+将(base,base+size)添加到type的region中，如果能合并，则合并之
+*/
 int __init_memblock memblock_add_range(struct memblock_type *type,
 				phys_addr_t base, phys_addr_t size,
 				int nid, unsigned long flags)
@@ -637,6 +642,7 @@ int __init_memblock memblock_add(phys_addr_t base, phys_addr_t size)
  * RETURNS:
  * 0 on success, -errno on failure.
  */
+//将(base,base+size)从region中单独切成一个region，以便后面将其移除
 static int __init_memblock memblock_isolate_range(struct memblock_type *type,
 					phys_addr_t base, phys_addr_t size,
 					int *start_rgn, int *end_rgn)
@@ -717,7 +723,9 @@ int __init_memblock memblock_remove(phys_addr_t base, phys_addr_t size)
 	return memblock_remove_range(&memblock.memory, base, size);
 }
 
-
+/*
+释放内存的函数，这个函数的处理很简单，直接将reserved的一段移除即可。
+*/
 int __init_memblock memblock_free(phys_addr_t base, phys_addr_t size)
 {
 	memblock_dbg("   memblock_free: [%#016llx-%#016llx] %pF\n",
@@ -982,6 +990,7 @@ void __init_memblock __next_mem_range(u64 *idx, int nid, ulong flags,
  *
  * Reverse of __next_mem_range().
  */
+//查找一段空间在type_a中，但是不包含的type_b中，在申请内存时使用
 void __init_memblock __next_mem_range_rev(u64 *idx, int nid, ulong flags,
 					  struct memblock_type *type_a,
 					  struct memblock_type *type_b,
@@ -1209,7 +1218,11 @@ phys_addr_t __init memblock_alloc_base(phys_addr_t size, phys_addr_t align, phys
 
 	return alloc;
 }
-
+/*
+申请内存的函数是 memblock_alloc(size,align) ，其算法是找到
+一段空间在memory的region而不在reserved的region中。然后将其
+添加到reserved的region中。
+*/
 phys_addr_t __init memblock_alloc(phys_addr_t size, phys_addr_t align)
 {
 	return memblock_alloc_base(size, align, MEMBLOCK_ALLOC_ACCESSIBLE);

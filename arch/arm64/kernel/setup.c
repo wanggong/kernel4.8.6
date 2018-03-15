@@ -259,7 +259,7 @@ void __init setup_arch(char **cmdline_p)
 	xen_early_init();
 	efi_init();
 	arm64_memblock_init();
-
+//½¨Á¢Ò³±í
 	paging_init();
 
 	acpi_table_upgrade();

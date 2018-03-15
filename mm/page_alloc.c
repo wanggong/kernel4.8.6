@@ -253,7 +253,7 @@ int user_min_free_kbytes = -1;
 //设置在/proc/sys/vm/watermark_scale_factor
 int watermark_scale_factor = 10;
 
-//kernel能访问的page的数量
+//kernel能访问的page的数量，在armv8中 nr_kernel_pages==nr_all_pages
 static unsigned long __meminitdata nr_kernel_pages;
 //所有page的数量
 static unsigned long __meminitdata nr_all_pages;
@@ -1152,6 +1152,7 @@ static void free_one_page(struct zone *zone,
 	spin_unlock(&zone->lock);
 }
 //初始化page，在加入buddy系统之前就被调用了
+//动作是设置 page->_refcount=1，page->_mapcount=-1；
 static void __meminit __init_single_page(struct page *page, unsigned long pfn,
 				unsigned long zone, int nid)
 {
@@ -1206,7 +1207,8 @@ static inline void init_reserved_page(unsigned long pfn)
  * marks the pages PageReserved. The remaining valid pages are later
  * sent to the buddy page allocator.
  */
- //将(start,end)的pages设置为reserved
+ //将(start,end)的pages设置为reserved，设置pageflags为PG_reserved
+ //还有就是设置page->_refcount=1，page->_mapcount=-1；表示此页面已经分配出去，但是没有map到pte
 void __meminit reserve_bootmem_region(phys_addr_t start, phys_addr_t end)
 {
 	unsigned long start_pfn = PFN_DOWN(start);
@@ -1258,6 +1260,7 @@ static void __init __free_pages_boot_core(struct page *page, unsigned int order)
 	set_page_count(p, 0);
 
 	page_zone(page)->managed_pages += nr_pages;
+	//这里将 page->_refcount 设置为1 ， 后面free时会减1
 	set_page_refcounted(page);
 	__free_pages(page, order);
 }
@@ -3880,7 +3883,8 @@ unsigned long get_zeroed_page(gfp_t gfp_mask)
 }
 EXPORT_SYMBOL(get_zeroed_page);
 
-//释放1<<order个page
+//释放1<<order个page，
+//对于free之后的page，page->_refcount=0，page->_mapcount=-1
 void __free_pages(struct page *page, unsigned int order)
 {
 	if (put_page_testzero(page)) {
@@ -4862,7 +4866,8 @@ static void set_zonelist_order(void)
 {
 	current_zonelist_order = ZONELIST_ORDER_ZONE;
 }
-//创建zonelist
+//node_zonelists是按照nodeid和zone_idx的顺序从大到小排列的，从当前node开始遍历所有的node，
+//按照zone_idx从大到小的顺序添加到    _zonerefs中
 static void build_zonelists(pg_data_t *pgdat)
 {
 	int node, local_node;
@@ -4962,6 +4967,7 @@ static int __build_all_zonelists(void *data)
 	 * needs the percpu allocator in order to allocate its pagesets
 	 * (a chicken-egg dilemma).
 	 */
+	 //还是没看懂
 	for_each_possible_cpu(cpu) {
 		setup_pageset(&per_cpu(boot_pageset, cpu), 0);
 
@@ -5194,6 +5200,7 @@ not_early:
 		 * check here not to call set_pageblock_migratetype() against
 		 * pfn out of zone.
 		 */
+		//初始化page和migrate type
 		if (!(pfn & (pageblock_nr_pages - 1))) {
 			struct page *page = pfn_to_page(pfn);
 
@@ -5218,7 +5225,7 @@ static void __meminit zone_init_free_lists(struct zone *zone)
 #define memmap_init(size, nid, zone, start_pfn) \
 	memmap_init_zone((size), (nid), (zone), (start_pfn), MEMMAP_EARLY)
 #endif
-//根据zone的大小就按batch的大小
+//根据zone的大小就按batch的大小，batch占总内存的0.025%
 static int zone_batchsize(struct zone *zone)
 {
 #ifdef CONFIG_MMU
@@ -5437,6 +5444,7 @@ static __meminit void zone_pcp_init(struct zone *zone)
 	 * relies on the ability of the linker to provide the
 	 * offset of a (static) per cpu variable into the per cpu area.
 	 */
+	//所有的zone都指向同一个 boot_pageset ？没看懂
 	zone->pageset = &boot_pageset;
 
 	if (populated_zone(zone))
@@ -5444,7 +5452,7 @@ static __meminit void zone_pcp_init(struct zone *zone)
 			zone->name, zone->present_pages,
 					 zone_batchsize(zone));
 }
-//初始化zone的参数
+//初始化zone的zone->wait_table，zone->free_area[order]等参数
 int __meminit init_currently_empty_zone(struct zone *zone,
 					unsigned long zone_start_pfn,
 					unsigned long size)
@@ -5926,7 +5934,7 @@ static unsigned long __paginginit calc_memmap_size(unsigned long spanned_pages,
  */
  //初始化pgdat的zone，计算pgdat中zonefreepage的大小，初始化各个zone，初始化
  //各个zone中的page，将所有的pageblock标记为movable，此时还不会将page添加到
- //buddy管理系统中来
+ //zone->free_area[order]中来，仅仅是初始化zone的参数。
 static void __paginginit free_area_init_core(struct pglist_data *pgdat)
 {
 	enum zone_type j;
@@ -5966,6 +5974,7 @@ static void __paginginit free_area_init_core(struct pglist_data *pgdat)
 		 * is used by this zone for memmap. This affects the watermark
 		 * and per-cpu initialisations
 		 */
+		//在sparse模式下，memmap不是已经分配过了吗？为什么此处还要减去？
 		memmap_pages = calc_memmap_size(size, realsize);
 		if (!is_highmem_idx(j)) {
 			if (freesize >= memmap_pages) {
@@ -5980,6 +5989,7 @@ static void __paginginit free_area_init_core(struct pglist_data *pgdat)
 		}
 
 		/* Account for reserved pages */
+		//减去dma_reserve
 		if (j == 0 && freesize > dma_reserve) {
 			freesize -= dma_reserve;
 			printk(KERN_DEBUG "  %s zone: %lu pages reserved\n",
@@ -6013,8 +6023,10 @@ static void __paginginit free_area_init_core(struct pglist_data *pgdat)
 
 		set_pageblock_order();
 		setup_usemap(pgdat, zone, zone_start_pfn, size);
+		//初始化zone的zone->wait_table，zone->free_area[order]等参数
 		ret = init_currently_empty_zone(zone, zone_start_pfn, size);
 		BUG_ON(ret);
+		//初始化zone的页面为MIGRATE_MOVABLE，同时初始化zone内的所有page数据结构
 		memmap_init(size, nid, j, zone_start_pfn);
 	}
 }
@@ -6064,7 +6076,7 @@ static void __ref alloc_node_mem_map(struct pglist_data *pgdat)
 #endif
 #endif /* CONFIG_FLAT_NODE_MEM_MAP */
 }
-//初始化nid对应的pgdat和对应的zone，已经zone中管理的page，只是暂时还不将这些page
+//初始化nid对应的pgdat和对应的zone，已及zone中管理的page，只是暂时还不将这些page
 //加入到buddy系统中
 //在arm64中，此函数会被zone_sizes_init(init.c)调用
 void __paginginit free_area_init_node(int nid, unsigned long *zones_size,
