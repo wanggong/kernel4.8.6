@@ -633,6 +633,7 @@ asmlinkage __visible void __init start_kernel(void)
 	sched_clock_init();
 	calibrate_delay();
 	pidmap_init();
+////´´½¨anonµÄbuffer
 	anon_vma_init();
 	acpi_early_init();
 #ifdef CONFIG_X86

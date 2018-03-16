@@ -46,7 +46,7 @@ static int mmap_is_legacy(void)
 
 	return sysctl_legacy_va_layout;
 }
-
+//mmap的起始地址一个随机的offset，估计是为了安全起见
 unsigned long arch_mmap_rnd(void)
 {
 	unsigned long rnd;
@@ -60,7 +60,7 @@ unsigned long arch_mmap_rnd(void)
 	return rnd << PAGE_SHIFT;
 }
 
-//返回一个一个进程的起始地址，不固定是为了防止stack溢出攻击
+//返回一个进程mmap的起始地址，不固定是为了防止stack溢出攻击
 static unsigned long mmap_base(unsigned long rnd)
 {
 	unsigned long gap = rlimit(RLIMIT_STACK);
@@ -78,7 +78,7 @@ static unsigned long mmap_base(unsigned long rnd)
  * image, sets up which VM layout function to use:
  */
 
-
+//设置mmap的基地址，设置get_unmapped_area函数
 void arch_pick_mmap_layout(struct mm_struct *mm)
 {
 	unsigned long random_factor = 0UL;

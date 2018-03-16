@@ -253,6 +253,7 @@ static void flush_arg_page(struct linux_binprm *bprm, unsigned long pos,
 	flush_cache_page(bprm->vma, pos, page_to_pfn(page));
 }
 
+//设置第一个vma(好像是stack的)，并插入到mm中
 static int __bprm_mm_init(struct linux_binprm *bprm)
 {
 	int err;
@@ -276,6 +277,7 @@ static int __bprm_mm_init(struct linux_binprm *bprm)
 	 * configured yet.
 	 */
 	BUILD_BUG_ON(VM_STACK_FLAGS & VM_STACK_INCOMPLETE_SETUP);
+	//暂时放在最高的内存处，大小是一个page
 	vma->vm_end = STACK_TOP_MAX;
 	vma->vm_start = vma->vm_end - PAGE_SIZE;
 	vma->vm_flags = VM_SOFTDIRTY | VM_STACK_FLAGS | VM_STACK_INCOMPLETE_SETUP;
@@ -370,6 +372,7 @@ static bool valid_arg_len(struct linux_binprm *bprm, long len)
  * flags, permissions, and offset, so we use temporary values.  We'll update
  * them later in setup_arg_pages().
  */
+ //初始化mm
 static int bprm_mm_init(struct linux_binprm *bprm)
 {
 	int err;
@@ -689,9 +692,10 @@ int setup_arg_pages(struct linux_binprm *bprm,
 	if (unlikely(stack_top < mmap_min_addr) ||
 	    unlikely(vma->vm_end - vma->vm_start >= stack_top - mmap_min_addr))
 		return -ENOMEM;
-
+//vma->vm_end是TASK_SIZE，这里为了简单可以认为stack_top也是vma->vm_end，
+//所以stack_shift=0
 	stack_shift = vma->vm_end - stack_top;
-
+//根据上面的假设，这里p的值不变，依然指向stack的最高内存
 	bprm->p -= stack_shift;
 	mm->arg_start = bprm->p;
 #endif
@@ -734,6 +738,7 @@ int setup_arg_pages(struct linux_binprm *bprm,
 	vma->vm_flags &= ~VM_STACK_INCOMPLETE_SETUP;
 
 	stack_expand = 131072UL; /* randomly 32*4k (or 2*64k) pages */
+//此时stack_size=4k
 	stack_size = vma->vm_end - vma->vm_start;
 	/*
 	 * Align this down to a page boundary as expand_stack
@@ -752,6 +757,7 @@ int setup_arg_pages(struct linux_binprm *bprm,
 		stack_base = vma->vm_start - stack_expand;
 #endif
 	current->mm->start_stack = bprm->p;
+//将stack扩大32*4k
 	ret = expand_stack(vma, stack_base);
 	if (ret)
 		ret = -EFAULT;
@@ -987,6 +993,7 @@ ssize_t read_code(struct file *file, unsigned long addr, loff_t pos, size_t len)
 }
 EXPORT_SYMBOL(read_code);
 
+//重新设置当前进程的mm为mm，此时mm中只有一个一页的堆栈存在
 static int exec_mmap(struct mm_struct *mm)
 {
 	struct task_struct *tsk;
@@ -1013,6 +1020,7 @@ static int exec_mmap(struct mm_struct *mm)
 	}
 	task_lock(tsk);
 	active_mm = tsk->active_mm;
+	//更换task的mm
 	tsk->mm = mm;
 	tsk->active_mm = mm;
 	activate_mm(active_mm, mm);
@@ -1226,6 +1234,7 @@ void __set_task_comm(struct task_struct *tsk, const char *buf, bool exec)
 	perf_event_comm(tsk, exec);
 }
 
+//将当前进程的mm换出，换入bmrm.mm，并且更新task的字段
 int flush_old_exec(struct linux_binprm * bprm)
 {
 	int retval;
@@ -1277,7 +1286,9 @@ EXPORT_SYMBOL(would_dump);
 
 void setup_new_exec(struct linux_binprm * bprm)
 {
+//设置mmap的base地址
 	arch_pick_mmap_layout(current->mm);
+//此时 mmap=TASK_SIZE/4，stack=TASK_SIZE
 
 	/* This is the point of no return */
 	current->sas_ss_sp = current->sas_ss_size = 0;
@@ -1574,6 +1585,7 @@ int search_binary_handler(struct linux_binprm *bprm)
 			continue;
 		read_unlock(&binfmt_lock);
 		bprm->recursion_depth++;
+		//此处对应的是 load_elf_binary
 		retval = fmt->load_binary(bprm);
 		read_lock(&binfmt_lock);
 		put_binfmt(fmt);
@@ -1856,6 +1868,7 @@ void set_dumpable(struct mm_struct *mm, int value)
 	} while (cmpxchg(&mm->flags, old, new) != old);
 }
 
+//新进程的起点
 SYSCALL_DEFINE3(execve,
 		const char __user *, filename,
 		const char __user *const __user *, argv,

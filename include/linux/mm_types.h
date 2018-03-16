@@ -332,6 +332,25 @@ struct vm_userfaultfd_ctx {};
  * space that has a special rule for the page-fault handlers (ie a shared
  * library, the executable area etc).
  */
+ /*
+用途：管理进程的某一段内存空间
+操作：
+1. 插入：首先从rb_node树上查找需要插入的位置，然后将新的vma插入到树上，
+		 同时查找需要插入的链表的位置(二叉树的prev节点)，插入到链表中，
+		 所以插入树和链表总的时间是log(n).
+2. 查找：从二叉树中查找，时间log(n)
+3. 分配：从高端地址尽可能深的查找二叉树分配
+
+在armv8中，user内存管理的工作简单了很多，具体动作如下：
+1.	stack的内存放在内存的顶端(TASK_SIZE的位置)，保留128M的空间。
+2.	在TASK_SIZE-128M是mmap能分配的空间的最大值，mmap从这个地址向下分配。
+3.	可执行文件的内存是需要固定位置的，这个用mmap(FIXED)分配到固定空间。
+4.	在可执行文件分配完之后，在其上面分配brk的空间，但是这个从来不使用。
+	可读写全局变量占用一个单独的map空间，标记是可读写。
+	const变量占用单独的一个map空间，标记为只读
+5.	.so的内存通过mmap分配
+6.	所有的通过malloc的内存分配都是通过mmap进行的。
+*/
 struct vm_area_struct {
 	/* The first cache line has the info for VMA tree walking. */
 
@@ -466,6 +485,18 @@ struct mm_rss_stat {
 
 struct kioctx_table;
 //同一进程的多个线程共享此结构
+/*
+内存的种类分为以下几种（默认情况下）：
+1. 堆栈，此内存顶端位于 TASK_SIZE 处，向下扩展，一般是保留128M
+2. mmap的内存，这段内存从TASK_SIZE-128M处开始，每次分配也是尽可能
+	从高向低的顺序查找(没有空洞的情况下)，有空洞时，按区间树的查找
+	方式尽可能的从底层的树中查找。
+	对于下面的内存也是通过mmap申请的但是会指定建议地址：
+	a. 可执行文件，可执行文件会使用FIXED标志表示必须加载到固定地址。
+	b. so库文件，这些文件会有建议地址，一般会使用建议地址加载，这大概就是
+		通过mmap看到stack下面的空洞大于128M的原因吧。
+
+*/
 struct mm_struct {
 //链表形式存放的vma    
 	struct vm_area_struct *mmap;		/* list of VMAs */
@@ -485,18 +516,13 @@ vmacache_seqnum:当mm删除了vma时，那么这里cache的vma就需要失效，这个字段
 *******************************************************************************/
 	u32 vmacache_seqnum;                   /* per-thread vmacache */
 #ifdef CONFIG_MMU
+//这个在函数 arch_pick_mmap_layout 中设置，在1861上对应的是 arch_get_unmapped_area_topdown
 	unsigned long (*get_unmapped_area) (struct file *filp,
 				unsigned long addr, unsigned long len,
 				unsigned long pgoff, unsigned long flags);
 #endif
 /******************************************************************************
-根据目前的理解，应用的内存分两种，一个是栈上的内存，一种是其他的内存
-这两种内存应该从内存的两头开始申请，一般情况是stack的内存从高端向低端扩展，
-而其他内存从低端向高端扩展。
-这里的mmap_base就是其他内存开始的地址，而上面的函数指针get_unmapped_area
-就是用来查找尚未被映射的地址。
-这两个值在arch_pick_mmap_layout中设置。
-而stack的地址扩展通过expand_stack进行。
+这两个值在 arch_pick_mmap_layout 中设置。
 ******************************************************************************/
 	unsigned long mmap_base;		/* base of mmap area */
 	unsigned long mmap_legacy_base;         /* base of mmap area in bottom-up allocations */
@@ -535,12 +561,13 @@ vmacache_seqnum:当mm删除了vma时，那么这里cache的vma就需要失效，这个字段
 	unsigned long pinned_vm;	/* Refcount permanently increased */
 	unsigned long data_vm;		/* VM_WRITE & ~VM_SHARED & ~VM_STACK */
 	unsigned long exec_vm;		/* VM_EXEC & ~VM_WRITE & ~VM_STACK */
+//stack 所占的page数
 	unsigned long stack_vm;		/* VM_STACK */
 	unsigned long def_flags;
 	unsigned long start_code, end_code, start_data, end_data;
 //start_brk:libc的malloc申请内存开始的地址
 //brk:通过malloc申请的最后的地址
-//start_stack:进程主线程的stack(不知道是否是开始地址)，见setup_arg_pages
+//start_stack:进程主线程的stack(不知道是否是开始地址)，见 setup_arg_pages
 	unsigned long start_brk, brk, start_stack;
 	unsigned long arg_start, arg_end, env_start, env_end;
 

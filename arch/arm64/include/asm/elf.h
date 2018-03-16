@@ -118,6 +118,7 @@
  * the loader.  We need to make sure that it is out of the way of the program
  * that it will "exec", and that there is sufficient room for the brk.
  */
+ //动态链接库加载在2/3*TASK_SIZE_64处
 #define ELF_ET_DYN_BASE	(2 * TASK_SIZE_64 / 3)
 
 #ifndef __ASSEMBLY__

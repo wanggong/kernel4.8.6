@@ -333,6 +333,8 @@ create_elf_tables(struct linux_binprm *bprm, struct elfhdr *exec,
 
 #ifndef elf_map
 
+//调用vmmap map file，根据前面的代码知道，exec的文件只能map到固定的地址，
+//so文件的地址是可以调整的。
 static unsigned long elf_map(struct file *filep, unsigned long addr,
 		struct elf_phdr *eppnt, int prot, int type,
 		unsigned long total_size)
@@ -665,6 +667,7 @@ static unsigned long randomize_stack_top(unsigned long stack_top)
 #endif
 }
 
+//被 search_binary_handler 调用
 static int load_elf_binary(struct linux_binprm *bprm)
 {
 	struct file *interpreter = NULL; /* to shut gcc up */
@@ -861,7 +864,7 @@ static int load_elf_binary(struct linux_binprm *bprm)
 				 executable_stack);
 	if (retval < 0)
 		goto out_free_dentry;
-	
+	//start_stack 指向堆栈的最高处
 	current->mm->start_stack = bprm->p;
 
 	/* Now we do a little grungy work by mmapping the ELF image into
@@ -907,10 +910,13 @@ static int load_elf_binary(struct linux_binprm *bprm)
 			elf_prot |= PROT_WRITE;
 		if (elf_ppnt->p_flags & PF_X)
 			elf_prot |= PROT_EXEC;
-
+//为什么要map成private？
+//原因：对于可写的部分，后面只需要将其修改为可写就可以了，
+//保证了每个应用的数据段都是自己的，而对于代码段，反正不能写
+//就共享了，好像不对，后面在看看
 		elf_flags = MAP_PRIVATE | MAP_DENYWRITE | MAP_EXECUTABLE;
-
 		vaddr = elf_ppnt->p_vaddr;
+		//对于exec来说，地址必须是elf文件指定的地址。
 		if (loc->elf_ex.e_type == ET_EXEC || load_addr_set) {
 			elf_flags |= MAP_FIXED;
 		} else if (loc->elf_ex.e_type == ET_DYN) {
@@ -968,7 +974,7 @@ static int load_elf_binary(struct linux_binprm *bprm)
 		}
 
 		k = elf_ppnt->p_vaddr + elf_ppnt->p_filesz;
-
+//brk是紧跟在exec文件的后面的
 		if (k > elf_bss)
 			elf_bss = k;
 		if ((elf_ppnt->p_flags & PF_X) && end_code < k)
@@ -993,6 +999,7 @@ static int load_elf_binary(struct linux_binprm *bprm)
 	 * mapping in the interpreter, to make sure it doesn't wind
 	 * up getting placed where the bss needs to go.
 	 */
+	//设置brk的地址和大小
 	retval = set_brk(elf_bss, elf_brk);
 	if (retval)
 		goto out_free_dentry;

@@ -1843,7 +1843,7 @@ found:
 	VM_BUG_ON(gap_start + info->length > gap_end);
 	return gap_start;
 }
-//查找没有map的地址
+//查找没有map的地址，这个是从高地址向低地址扩展
 unsigned long unmapped_area_topdown(struct vm_unmapped_area_info *info)
 {
 	struct mm_struct *mm = current->mm;
@@ -2091,7 +2091,12 @@ get_unmapped_area(struct file *file, unsigned long addr, unsigned long len,
 EXPORT_SYMBOL(get_unmapped_area);
 
 /* Look up the first VMA which satisfies  addr < vm_end,  NULL if none. */
-//查找vma，实际查找的是第一个vm_end > addr的vma，addr不一定在[start,end)中
+/*
+查找vma，实际查找的是第一个vm_end > addr的vma，addr不一定在[start,end)中,
+这里是>不是>=非常重要，因为对于thread的stack，在其前面有一个guard，gaurd的end
+地址正好等于将要expand的地址，但是我们需要返回的是stack的vma，所以一定要用
+>而不是>=。
+*/
 struct vm_area_struct *find_vma(struct mm_struct *mm, unsigned long addr)
 {
 	struct rb_node *rb_node;
@@ -2845,7 +2850,7 @@ static int do_brk(unsigned long addr, unsigned long request)
 		return 0;
 
 	flags = VM_DATA_DEFAULT_FLAGS | VM_ACCOUNT | mm->def_flags;
-
+//brk申请也是使用fixed标志，
 	error = get_unmapped_area(NULL, addr, len, 0, MAP_FIXED);
 	if (offset_in_page(error))
 		return error;
@@ -2916,6 +2921,9 @@ out:
 	return 0;
 }
 //brk
+//在arm64 libc的实现中，对堆内存的管理基本上已经不再使用brk了，
+//无论大小内存都是通过mmap(MAP_PRIVATE|MAP_ANONYMOUS)实现的了，
+//这样也确实更合理
 int vm_brk(unsigned long addr, unsigned long len)
 {
 	struct mm_struct *mm = current->mm;

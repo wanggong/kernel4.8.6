@@ -3480,6 +3480,7 @@ int bh_submit_read(struct buffer_head *bh)
 }
 EXPORT_SYMBOL(bh_submit_read);
 
+//³õÊ¼»¯buffer_headµÄ»º´æ
 void __init buffer_init(void)
 {
 	unsigned long nrpages;

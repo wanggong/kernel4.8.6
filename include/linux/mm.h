@@ -50,6 +50,7 @@ extern int page_cluster;
 #ifdef CONFIG_SYSCTL
 extern int sysctl_legacy_va_layout;
 #else
+//控制mmap是从低端向高端申请(legacy),还是从低端向高端申请(默认)
 #define sysctl_legacy_va_layout 0
 #endif
 
@@ -2082,6 +2083,8 @@ extern unsigned long __must_check vm_mmap(struct file *, unsigned long,
         unsigned long, unsigned long);
 
 struct vm_unmapped_area_info {
+//这个标志用于控制在mmap时，分配空间是尽可能的从高地址分配还是从低地址分配，
+//定义了表示尽可能的从高地址分配。
 #define VM_UNMAPPED_AREA_TOPDOWN 1
 	unsigned long flags;
 	unsigned long length;

@@ -92,7 +92,7 @@ image安放在虚拟地址空间的哪个位置上。
 #define PCI_IO_END		(VMEMMAP_START - SZ_2M)
 #define PCI_IO_START		(PCI_IO_END - PCI_IO_SIZE)
 #define FIXADDR_TOP		(PCI_IO_START - SZ_2M)
-//user空间的最大值，同时也是user空间的大小
+//user空间的最大值，同时也是user空间的大小，主线程stack地址从这里开始
 #define TASK_SIZE_64		(UL(1) << VA_BITS)
 
 //	一般而言，用户地址空间从0开始，大小就是TASK_SIZE，因此，
@@ -111,6 +111,7 @@ image安放在虚拟地址空间的哪个位置上。
 #define TASK_SIZE		TASK_SIZE_64
 #endif /* CONFIG_COMPAT */
 
+//mmap的起始地址
 #define TASK_UNMAPPED_BASE	(PAGE_ALIGN(TASK_SIZE / 4))
 /*
 KERNEL_START是kernel开始运行的虚拟地址，更确切的说是内核正文段开始的虚拟地址。 
