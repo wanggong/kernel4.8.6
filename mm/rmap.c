@@ -1074,7 +1074,6 @@ static bool invalid_mkclean_vma(struct vm_area_struct *vma, void *arg)
 //将指向此页面的pte更新为只读的，
 //这个更新很有必要，因为只有这样才能在下次写时发生pagefault，然后
 //将页面更新为dirty，不然对于mmap出来的页面时没有办法知道被写入的。
-
 int page_mkclean(struct page *page)
 {
 	int cleaned = 0;

@@ -167,6 +167,7 @@ enum node_stat_item {
 //buffer和cache都是在这里计算		
 //统计发生在函数 __add_to_page_cache_locked 中，当将page添加到mapping之后
 //加一的
+//注：NR_SHMEM 的page也同时统计到此处。
 	NR_FILE_PAGES,
 //在写文件时会更新此统计信息，路径之一是：
 //__do_page_fault->handle_mm_fault->__handle_mm_fault->handle_pte_fault->do_fault->
@@ -174,6 +175,7 @@ enum node_stat_item {
 	NR_FILE_DIRTY,
 	NR_WRITEBACK,
 	NR_WRITEBACK_TEMP,	/* Writeback using temporary buffers */
+	//shmem的page，见 shmem_add_to_page_cache ，这部分内存同时统计到 NR_FILE_PAGES 中
 	NR_SHMEM,		/* shmem pages (included tmpfs/GEM pages) */
 	NR_SHMEM_THPS,
 	NR_SHMEM_PMDMAPPED,

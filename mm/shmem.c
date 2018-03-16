@@ -578,6 +578,8 @@ static int shmem_add_to_page_cache(struct page *page,
 		mapping->nrpages += nr;
 		if (PageTransHuge(page))
 			__inc_node_page_state(page, NR_SHMEM_THPS);
+		//这里可以知道shm的page是算在filepage中的，同时也计算到shmem中，但是这些
+		//内存是没有后备文件支持的。
 		__mod_node_page_state(page_pgdat(page), NR_FILE_PAGES, nr);
 		__mod_node_page_state(page_pgdat(page), NR_SHMEM, nr);
 		spin_unlock_irq(&mapping->tree_lock);
