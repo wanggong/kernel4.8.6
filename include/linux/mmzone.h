@@ -38,6 +38,26 @@
 //多花些力气。
 #define PAGE_ALLOC_COSTLY_ORDER 3
 
+/****************************************************************************
+可以说MIGRATE_TYPE仅仅是一种防止碎片的策略，不应该因为它的存在而影响到内存
+分配的结果，也就是说，如果在一个MIGRATE_TYPE链 表中没有内存可以分配了，那么
+也还是可以从别的链表中“暂时抢”一些的。另外，还有一个问题，内核载初始化的时
+候如何为“不可移动类”或者“可移动类”页 面指定初始大小呢？也就是说，一开始，系
+统的free_area中的这些类别链表的页面各该是多少个呢？事实上，内核从来没有指定
+过初始大小，而是一开始 将所有页面都归到“可移动”组当中，而别的组全部都是空的，
+等到真的有不可移动页面需求的时候再从可移动组中拨一批给不可移动组链表，想一下
+这也是合理 的，毕竟只是一些“不可移动”的页面造成了内存的长期碎片化，如果没有
+这些长期使用的不可移动页面，碎片的问题是不大的。这个从 __rmqueue_fallback函
+数中可以看出，系统的内存子系统拥有一个fallbacks序列，该序列展示了一个分配序
+列，也就是如果一个 migratetype链表中如果分配不到内存的话，下一个应该在哪个
+migratetype链表中分配。从__rmqueue_fallback可以看 出，如果从要求的migratetype
+空闲链表中分配不到内存的话，并不是在根据fallbacks序列在“下一个”链表中仅仅分
+配到自己本次所需的就 完事了，而是一次性从fallbacks序列中指示的链表中转移足够
+多的页面到分配时要求的migratetype链表，毕竟该种类型的空闲链表已经没有 页面
+了，确实需要补充了，并且如果补充的页面太少，那么就会给转移的源migratetype类
+型组造成碎片，只有一次性分配一大块内存，才不至于引入碎 片。
+*****************************************************************************/
+
 enum {
 	MIGRATE_UNMOVABLE,
 	MIGRATE_MOVABLE,
@@ -723,14 +743,20 @@ struct bootmem_data;
 typedef struct pglist_data {
 	struct zone node_zones[MAX_NR_ZONES];
 /*******************************************************************************
-//node_zonelists是按照nodeid和zone_idx的顺序从大到小排列的，从当前node开始遍历所有的node，
+node_zonelists 是按照nodeid和zone_idx的顺序从大到小排列的，从当前node开始遍历所有的node，
 按照zone_idx从大到小的顺序添加到    _zonerefs中，见build_zonelists_node   
-//所以在node_zones中的排序是
 内存分配是这样查找的:
-首先通过函数gfp_zone(gfp_mask)，根据gfp_mask找到对应zone_type，根据内存的申请规则，
-zone type小于等于zone_type的zone都能满足要求，因为node_zonelists是从大到小排列的，
-所以在某个之后的都可以。(注:在numa中，node_zonelists中包含多个node的zone，各个node的
-zone在一块，按从大到小排列。
+1.  找一个一个合适的zone：首先通过函数gfp_zone(gfp_mask)，根据gfp_mask找到对应zone_type，根据内存的申请规则，
+	zone type小于等于zone_type的zone都能满足要求，因为node_zonelists是从大到小排列的，
+	所以在某个之后的都可以。(注:在numa中，node_zonelists中包含多个node的zone，各个node的
+	zone在一块，按从大到小排列。）
+	A.  根据申请的migrate type，在zone的free_area找对应type的内存，从最小适合的order开始找，找到
+		合适的就返回。如果找不到合适的则进行下面的动作。
+		a. 如果type是MOVALBE的，从CMA中按order从小到大查找一次。
+		b1. 用最大的order查找fallback的空闲内存，找到将这个内存都移到type，然后分配
+		b2. 用较小的order从fallback中查找。
+2.	从下一个zone查找。
+就是说分配时总是尽可能的从当前zone中分配，只有当前zone无法满足时才会进入到下一个zone。
 **********************************************************************************/
 	struct zonelist node_zonelists[MAX_ZONELISTS];
 	int nr_zones;

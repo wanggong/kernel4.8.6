@@ -2124,7 +2124,8 @@ static void unreserve_highatomic_pageblock(const struct alloc_context *ac)
 }
 
 /* Remove an element from the buddy allocator from the fallback list */
-//从后备buddy中分配order的内存
+//从后备buddy中分配order的内存，分配方式是：使用最大的order遍历所有的
+//fallbacks，然后逐渐减小order遍历所有的fallback。
 static inline struct page *
 __rmqueue_fallback(struct zone *zone, unsigned int order, int start_migratetype)
 {
@@ -2653,7 +2654,7 @@ struct page *buffered_rmqueue(struct zone *preferred_zone,
 
 		do {
 			page = NULL;
- //当标记为harder时，首先从MIGRATE_HIGHATOMIC中分配，MIGRATE_HIGHATOMIC之专门为
+ //当标记为harder时，首先从 MIGRATE_HIGHATOMIC 中分配，MIGRATE_HIGHATOMIC 之专门为
  //harder分配而保留的一部分内存
 			if (alloc_flags & ALLOC_HARDER) {
 				page = __rmqueue_smallest(zone, order, MIGRATE_HIGHATOMIC);
@@ -2934,6 +2935,7 @@ get_page_from_freelist(gfp_t gfp_mask, unsigned int order, int alloc_flags,
 	 * Scan zonelist, looking for a zone with enough free.
 	 * See also __cpuset_node_allowed() comment in kernel/cpuset.c.
 	 */
+//尝试zonelist中的zone，分配类型为 ac->migratetype 的page，
 	for_next_zone_zonelist_nodemask(zone, z, ac->zonelist, ac->high_zoneidx,
 								ac->nodemask) {
 		struct page *page;
@@ -3386,6 +3388,7 @@ gfp_to_alloc_flags(gfp_t gfp_mask)
 		alloc_flags |= ALLOC_HARDER;
 
 #ifdef CONFIG_CMA
+//可移动的页面时可以从CMA申请的
 	if (gfpflags_to_migratetype(gfp_mask) == MIGRATE_MOVABLE)
 		alloc_flags |= ALLOC_CMA;
 #endif
@@ -3774,9 +3777,9 @@ __alloc_pages_nodemask(gfp_t gfp_mask, unsigned int order,
 	gfp_mask &= gfp_allowed_mask;
 
 	lockdep_trace_alloc(gfp_mask);
-
+	
+	//只有设置了 __GFP_DIRECT_RECLAIM 标志才会有可能睡眠吗？
 	might_sleep_if(gfp_mask & __GFP_DIRECT_RECLAIM);
-
 	if (should_fail_alloc_page(gfp_mask, order))
 		return NULL;
 
@@ -3787,7 +3790,7 @@ __alloc_pages_nodemask(gfp_t gfp_mask, unsigned int order,
 	 */
 	if (unlikely(!zonelist->_zonerefs->zone))
 		return NULL;
-
+//只有MOVABLE的页面才能使用CMA的内存？
 	if (IS_ENABLED(CONFIG_CMA) && ac.migratetype == MIGRATE_MOVABLE)
 		alloc_flags |= ALLOC_CMA;
 

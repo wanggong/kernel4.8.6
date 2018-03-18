@@ -528,6 +528,7 @@ static int check_vma_flags(struct vm_area_struct *vma, unsigned long gup_flags)
  * instead of __get_user_pages. __get_user_pages should be used only if
  * you need some special @gup_flags.
  */
+//将此地址的page固定下来，不允许换出，这在kernel访问user内存时是需要的。
 //将start开始的nr_pages个page通过pagefault映射到真正的物理内存
 long __get_user_pages(struct task_struct *tsk, struct mm_struct *mm,
 		unsigned long start, unsigned long nr_pages,

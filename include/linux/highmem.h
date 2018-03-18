@@ -184,6 +184,7 @@ __alloc_zeroed_user_highpage(gfp_t movableflags,
  * This function will allocate a page for a VMA that the caller knows will
  * be able to migrate in the future using move_pages() or reclaimed
  */
+//anon的pagefault会使用这个函数为user分配内存，被 do_anonymous_page 调用
 static inline struct page *
 alloc_zeroed_user_highpage_movable(struct vm_area_struct *vma,
 					unsigned long vaddr)

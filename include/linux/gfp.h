@@ -273,11 +273,19 @@ struct vm_area_struct;
 //GFP_USER GFP_HIGHUSER和GFP_HIGHUSER_MOVABLE的区别
 //GFP_USER:分配的内存kernel和user都要使用
 //GFP_HIGHUSER:分配的内存kernel不会访问，只有user会访问，但硬件也可能会访问，所以不能移动
-//GFP_HIGHUSER_MOVABLE:只有user访问，也可能随意移动
+//GFP_HIGHUSER_MOVABLE:只有user访问，也可能随意移动,kernel访问要通过kmap，访问之后可能被移动
 #define GFP_USER	(__GFP_RECLAIM | __GFP_IO | __GFP_FS | __GFP_HARDWALL)
 #define GFP_DMA		__GFP_DMA
 #define GFP_DMA32	__GFP_DMA32
 #define GFP_HIGHUSER	(GFP_USER | __GFP_HIGHMEM)
+/*
+按英文注释，movable的memory，kernel时可以通过 kmap 访问的，但在kmap的实现中，并没有
+锁定页面的动作，如果kernel正在访问时，这个page被换出了怎么办？
+方法是先调用 get_user_pages 将内存锁定在内存中，然后调用 kmap 访问，访问之后调用
+put_page释放掉，具体事例参见: elf_core_dump 函数2301行附近代码
+
+当user发生pagefault时，默认分配的就是这种page
+*/
 #define GFP_HIGHUSER_MOVABLE	(GFP_HIGHUSER | __GFP_MOVABLE)
 #define GFP_TRANSHUGE_LIGHT	((GFP_HIGHUSER_MOVABLE | __GFP_COMP | \
 			 __GFP_NOMEMALLOC | __GFP_NOWARN) & ~__GFP_RECLAIM)
@@ -287,6 +295,9 @@ struct vm_area_struct;
 #define GFP_MOVABLE_MASK (__GFP_RECLAIMABLE|__GFP_MOVABLE)
 #define GFP_MOVABLE_SHIFT 3
 
+//为什么只返回 ___GFP_RECLAIMABLE 跟 ___GFP_MOVABLE的组合，没明白
+//因为在 MIGRATE_TYPES 的枚举中 ___GFP_MOVABLE=1，___GFP_RECLAIMABLE=2，
+//所以这里时可以返回这两位的，但是后面枚举怎么办？永远都不会返回？
 static inline int gfpflags_to_migratetype(const gfp_t gfp_flags)
 {
 	VM_WARN_ON((gfp_flags & GFP_MOVABLE_MASK) == GFP_MOVABLE_MASK);
@@ -302,6 +313,7 @@ static inline int gfpflags_to_migratetype(const gfp_t gfp_flags)
 #undef GFP_MOVABLE_MASK
 #undef GFP_MOVABLE_SHIFT
 
+//直接回收是会block的
 static inline bool gfpflags_allow_blocking(const gfp_t gfp_flags)
 {
 	return !!(gfp_flags & __GFP_DIRECT_RECLAIM);

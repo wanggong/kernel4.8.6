@@ -111,7 +111,7 @@ struct alloc_context {
 	int migratetype;
 //可以分配的最大的zoneidx，小于等于此的都可以
 	enum zone_type high_zoneidx;
-//如果申请的buffer是用来写的，则设置此标志，
+//如果申请的buffer是用来写的，则设置此标志，用于平衡各个node的脏页面个数
 	bool spread_dirty_pages;
 };
 
