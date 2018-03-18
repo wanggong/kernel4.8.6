@@ -4086,6 +4086,7 @@ static struct dentry_operations anon_ops = {
 	.d_dname = simple_dname
 };
 
+//在share memory的文件系统中创建一个文件节点，并返回
 static struct file *__shmem_file_setup(const char *name, loff_t size,
 				       unsigned long flags, unsigned int i_flags)
 {
