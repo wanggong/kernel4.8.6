@@ -108,6 +108,7 @@ static void __init __free_pages_memory(unsigned long start, unsigned long end)
 	}
 }
 
+//将(start,end)的内存释放到buddy管理系统中
 static unsigned long __init __free_memory_core(phys_addr_t start,
 				 phys_addr_t end)
 {

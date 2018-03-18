@@ -224,7 +224,9 @@ static void __init request_standard_resources(void)
 }
 
 u64 __cpu_logical_map[NR_CPUS] = { [0 ... NR_CPUS-1] = INVALID_HWID };
-
+/*
+1. kernel重新映射到vmalloc区域，将low memory全部映射到线性区
+*/
 void __init setup_arch(char **cmdline_p)
 {
 	pr_info("Boot CPU: AArch64 Processor [%08x]\n", read_cpuid_id());
@@ -259,7 +261,8 @@ void __init setup_arch(char **cmdline_p)
 	xen_early_init();
 	efi_init();
 	arm64_memblock_init();
-//建立页表
+//建立页表，将kernel分别映射到vmalloc区域和线性区，将所有低端内存
+//映射到线性区。
 	paging_init();
 
 	acpi_table_upgrade();

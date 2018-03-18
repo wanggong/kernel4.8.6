@@ -461,6 +461,13 @@ void __init __weak thread_stack_cache_init(void)
 /*
  * Set up kernel memory allocators
  */
+/*
+完成内存初始化的最后动作，包括
+1. 将memblock.reserved.regions中的页标记为已分配SetPageReserved(page)，将存在于
+	memblock.memory.regions不存在memblock.reserved.regions中的页释放到伙伴系统。
+2. 初始化vmalloc
+*/
+
 static void __init mm_init(void)
 {
 	/*
@@ -470,11 +477,15 @@ static void __init mm_init(void)
 	page_ext_init_flatmem();
 //将memblock.reserved.regions中的页标记为已分配SetPageReserved(page)，将存在于
 //memblock.memory.regions不存在memblock.reserved.regions中的页释放到伙伴系统。
+//从这里开始buddy管理系统就可以启用了
 	mem_init();
 	kmem_cache_init();
 	percpu_init_late();
 	pgtable_init();
+//初始化vmalloc，并将kernel的map添加进去
 	vmalloc_init();
+//ioremmap可以是huge的，这里初始化其实没有做什么，根据arch mmu的情况
+//设置huge的状态
 	ioremap_huge_init();
 }
 
@@ -518,7 +529,7 @@ asmlinkage __visible void __init start_kernel(void)
 	smp_prepare_boot_cpu();	/* arch-specific boot-cpu hooks */
 	
 //node_zonelists是按照nodeid和zone_idx的顺序从大到小排列的，从当前node开始遍历所有的node，
-//按照zone_idx从大到小的顺序添加到	_zonerefs中
+//按照zone_idx从大到小的顺序添加到	_zonerefs中，每个node支持的zone是在编译时配置的
 	build_all_zonelists(NULL, NULL);
 	page_alloc_init();
 
@@ -544,10 +555,12 @@ asmlinkage __visible void __init start_kernel(void)
 	sort_main_extable();
 	trap_init();
 /*
+在这之前分配的内存都是通过memblock reserved分配的，基本上时在整个kernel生存期内
+	都不会释放的，也不会是放到buddy内存管理的。
 完成内存初始化的最后动作，包括
 1. 将memblock.reserved.regions中的页标记为已分配SetPageReserved(page)，将存在于
 	memblock.memory.regions不存在memblock.reserved.regions中的页释放到伙伴系统。
-2. 
+2. 初始化vmalloc
 */
 	mm_init();
 

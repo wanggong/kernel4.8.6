@@ -38,8 +38,11 @@ vmap_area用于链接到rbtree和链表等
 这里管理的信息可通过 cat /proc/vmallocinfo 查看
 ******************************************************************************/
 struct vm_struct {
+//目前仅仅看到这个会在 vm_area_add_early 中使用，其他地方没有使用，用处
+//好像是仅仅为了early kernel map，就是说没什么用
 	struct vm_struct	*next;
-	//开始地址
+	//开始地址，这里的addr和vmap_area.va_start是一样的值，下面的size和vmap_area.va_end也是重合的
+	//为什么同样的内容要分配的两个不同的数据结构中，是否可以合并。
 	void			*addr;
 	//分配内存的大小，包括用于隔离的一个page的空洞
 	unsigned long		size;
@@ -53,14 +56,22 @@ struct vm_struct {
 	const void		*caller;
 };
 
+/*
+vmap_area是管理vmalloc空间(VMALLOC_START, VMALLOC_END)的数据结构,
+空间分配方法：从低地址开始分配，先从rb_node中找到合适的开始地址，然后遍历这个list，
+对于vmalloc而言相当于每次都遍历整个list，效率较差。但算法中使用了cache记住上次
+搜索的状况，大部分情况下都从cache开始直接分配了，可能对效率有较大的提升，为什么
+不像vma那样也添加一个子树最大空洞的字段呢？
+分配函数是： alloc_vmap_area
+*/
 struct vmap_area {
 	//虚拟地址的开始和结束，包括一个page的空洞
 	unsigned long va_start;
 	unsigned long va_end;
 	unsigned long flags;
-	//链接到rbtree
+	//链接到 vmap_area_root
 	struct rb_node rb_node;         /* address sorted rbtree */
-	//链接到list
+	//链接到 vmap_area_list
 	struct list_head list;          /* address sorted list */
 	struct llist_node purge_list;    /* "lazy purge" list */
 	//指向 vm_struct

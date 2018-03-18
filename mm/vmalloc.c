@@ -234,6 +234,7 @@ int is_vmalloc_or_module_addr(const void *x)
 /*
  * Walk a vmap address to the struct page it maps.
  */
+//从vmalloc_addr找到其对应的page
 struct page *vmalloc_to_page(const void *vmalloc_addr)
 {
 	unsigned long addr = (unsigned long) vmalloc_addr;
@@ -289,6 +290,10 @@ static LLIST_HEAD(vmap_purge_list);
 static struct rb_root vmap_area_root = RB_ROOT;
 
 /* The vmap cache globals are protected by vmap_area_lock */
+//这四个变量表示，在free_vmap_cache这个node之前的空洞的最大值，如果申请
+//值大于这个最大值的话，就不需要遍历这个二叉树，只从cache点开始查找即可，
+//如果小于这个值，表示在cache这个node之前有满足要求的点，就需要遍历整个
+//二叉树。
 static struct rb_node *free_vmap_cache;
 static unsigned long cached_hole_size;
 static unsigned long cached_vstart;
@@ -357,7 +362,10 @@ static BLOCKING_NOTIFIER_HEAD(vmap_notify_list);
  * Allocate a region of KVA of the specified size and alignment, within the
  * vstart and vend.
  */
-//在 vmap_area_list 中查找一段为使用的空间
+/*
+在 vmap_area_list 中查找一段未使用的空间，主体算法是搜索vmap_area_list链表从
+左到右(从低地址到高地址)找出一个未使用的空间，当然算法做了优化。
+*/
 static struct vmap_area *alloc_vmap_area(unsigned long size,
 				unsigned long align,
 				unsigned long vstart, unsigned long vend,
@@ -397,6 +405,12 @@ retry:
 	 * Note that __free_vmap_area may update free_vmap_cache
 	 * without updating cached_hole_size or cached_align.
 	 */
+/*
+终于看明白了这一段：着重关注 size < cached_hole_size，意思是说如果
+在之前的空洞能满足要求的话，则不使用cache，否则使用。
+相当于是cache表示以前曾经搜索过，没有满足要求的空洞，就不需要再从
+二叉树查找了，直接从cache后面分配就可以了。
+*/
 	if (!free_vmap_cache ||
 			size < cached_hole_size ||
 			vstart < cached_vstart ||
@@ -425,7 +439,20 @@ nocache:
 
 		n = vmap_area_root.rb_node;
 		first = NULL;
+/*
+从小的地址开始查找size的空洞，用list代替tree会更容易想通这一段代码，
+struct vmap_area *tmp = vmap_area_list
+while(tmp->end < addr)
+{
+	tmp=tmp->next;
+}
+if(tmp->start>addr)
+{
+	return tmp->prev
+}
+return tmp;
 
+*/
 		while (n) {
 			struct vmap_area *tmp;
 			tmp = rb_entry(n, struct vmap_area, rb_node);
@@ -437,12 +464,20 @@ nocache:
 			} else
 				n = n->rb_right;
 		}
-
+		//只有在最大的 vmap_area.end < add 时，first才会时null，
+		//相当于时一定要在树的最大值的右边添加了
 		if (!first)
 			goto found;
 	}
 
 	/* from the starting point, walk areas until a suitable hole is found */
+/*
+按addr从小到大从vmap_area_list中找到一个不小于size的空洞
+如果vmap_area分配的很多的话，这样遍历这个链表是有效率问题的，
+例如我们使用vmalloc分配空间，就会从vmalloc支持的最低地址开始一直
+查到最高地址，每次分配要把这个链表遍历一遍，效率低下，在1861
+的kernel中曾经出现过此问题。
+*/
 	while (addr + size > first->va_start && addr + size <= vend) {
 		if (addr + cached_hole_size < first->va_start)
 			cached_hole_size = first->va_start - addr;
@@ -1256,6 +1291,8 @@ void __init vmalloc_init(void)
 	}
 
 	/* Import existing vmlist entries. */
+	//kernel的代码段和数据段在比较早的时候映射到了vmalloc中，见 map_kernel ，
+	//这里将其添加到vmalloc的管理树中
 	for (tmp = vmlist; tmp; tmp = tmp->next) {
 		va = kzalloc(sizeof(struct vmap_area), GFP_NOWAIT);
 		va->flags = VM_VM_AREA;
@@ -1395,7 +1432,7 @@ static struct vm_struct *__get_vm_area_node(unsigned long size,
 //默认情况下，vmalloc之间有一个一页大小的空洞，用于隔离
 	if (!(flags & VM_NO_GUARD))
 		size += PAGE_SIZE;
-
+//找到一段未使用的vaddr
 	va = alloc_vmap_area(size, align, start, end, node, gfp_mask);
 	if (IS_ERR(va)) {
 		kfree(area);
@@ -1593,7 +1630,9 @@ EXPORT_SYMBOL(vunmap);
  *	space.
  */
 
-//将pages map到vmalloc的一段地址空间中，并返回
+//将pages map到vmalloc的一段地址空间中，并返回分配的地址，
+//vmap用于自己分配页面，同时自己指定页面的prot，可参考
+// persistent_ram_vmap
 void *vmap(struct page **pages, unsigned int count,
 		unsigned long flags, pgprot_t prot)
 {
@@ -1651,6 +1690,7 @@ static void *__vmalloc_area_node(struct vm_struct *area, gfp_t gfp_mask,
 		return NULL;
 	}
 
+	//分配内存
 	for (i = 0; i < area->nr_pages; i++) {
 		struct page *page;
 
@@ -1668,7 +1708,7 @@ static void *__vmalloc_area_node(struct vm_struct *area, gfp_t gfp_mask,
 		if (gfpflags_allow_blocking(gfp_mask))
 			cond_resched();
 	}
-
+	//map page到area上
 	if (map_vm_area(area, prot, pages))
 		goto fail;
 	return area->addr;
@@ -1840,6 +1880,7 @@ EXPORT_SYMBOL(vzalloc);
  * without leaking data.
  */
 //
+//分配一段可映射到用户空间的内存
 void *vmalloc_user(unsigned long size)
 {
 	struct vm_struct *area;
@@ -2214,6 +2255,7 @@ finished:
  *
  *	Similar to remap_pfn_range() (see mm/memory.c)
  */
+//将kernel的vmalloc的地址kaddr对应的page映射到用户空间vma的uaddr
 int remap_vmalloc_range_partial(struct vm_area_struct *vma, unsigned long uaddr,
 				void *kaddr, unsigned long size)
 {

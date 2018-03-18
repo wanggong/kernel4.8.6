@@ -2093,9 +2093,11 @@ EXPORT_SYMBOL(get_unmapped_area);
 /* Look up the first VMA which satisfies  addr < vm_end,  NULL if none. */
 /*
 查找vma，实际查找的是第一个vm_end > addr的vma，addr不一定在[start,end)中,
+
 这里是>不是>=非常重要，因为对于thread的stack，在其前面有一个guard，gaurd的end
 地址正好等于将要expand的地址，但是我们需要返回的是stack的vma，所以一定要用
 >而不是>=。
+上面的理解可能不对，普通线程(非主线程)的栈可能是不能扩展的(固定大小)。
 */
 struct vm_area_struct *find_vma(struct mm_struct *mm, unsigned long addr)
 {

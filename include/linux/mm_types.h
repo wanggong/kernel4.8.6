@@ -433,6 +433,7 @@ rb_subtree_last是用于加快search的速度。这是一种对范围搜索的手段。
 //对于file mapped page，page->index表示的是映射到文件内的偏移（Byte为单位），
 //而vma->vm_pgoff表示的是该VMA映射到文件内的偏移（page为单位）
 
+//对于anon+private的映射，这个就是addr>>PAGE_SHIFT，即vma的起始地址
 	unsigned long vm_pgoff;		/* Offset (within vm_file) in PAGE_SIZE
 //vma map的file					   units */
 	struct file * vm_file;		/* File we map to (can be NULL). */

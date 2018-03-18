@@ -483,7 +483,8 @@ __alloc_pages_node(int nid, gfp_t gfp_mask, unsigned int order)
 {
 	VM_BUG_ON(nid < 0 || nid >= MAX_NUMNODES);
 	VM_WARN_ON(!node_online(nid));
-
+	//从合适的zonelist中分配，对于uma的内存，只有一个 ZONELIST_FALLBACK 的
+	//zonelist，所以这里实际上时固定的
 	return __alloc_pages(gfp_mask, order, node_zonelist(nid, gfp_mask));
 }
 

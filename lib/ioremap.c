@@ -25,6 +25,8 @@ static int __init set_nohugeiomap(char *str)
 }
 early_param("nohugeiomap", set_nohugeiomap);
 
+//ioremmap可以是huge的，这里初始化其实没有做什么，根据arch mmu的情况
+//设置huge的状态
 void __init ioremap_huge_init(void)
 {
 	if (!ioremap_huge_disabled) {

@@ -498,6 +498,7 @@ static void __init map_kernel(pgd_t *pgd)
 重建内核页表
 这里有一点很奇怪的地方，在 map_kernel （映射区域是vmalloc）中将代码段和只读段映射成了可读写的，
 但是在之后通过 map_mem 函数线性映射时，将代码段和只读段映射为了只读的，为什么要这么做？
+可能的原因之一：kprobe需要插入代码到代码段才能进行调试。
  */
  
 void __init paging_init(void)

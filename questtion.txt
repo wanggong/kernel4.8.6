@@ -1,0 +1,2 @@
+1. pcpu_get_vm_areas 为每个cpu分配vmalloc空间
+2. 精确统计单个程序占用内存物理总量，所有应用占用物理内存总量，kernel占用内存总量
