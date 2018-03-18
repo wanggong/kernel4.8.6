@@ -84,6 +84,9 @@ struct vm_area_struct;
 #define __GFP_RECLAIMABLE ((__force gfp_t)___GFP_RECLAIMABLE)
 //调用者要写这个page
 #define __GFP_WRITE	((__force gfp_t)___GFP_WRITE)
+//每个进程都有一个 mems_allowed 变量，表示当前进程能够使用的内存node，
+//如果使用这个标志，意思就是说只能从 mems_allowed 所包含的节点分配内存，
+//这个是对NUMA系统使用的。
 #define __GFP_HARDWALL   ((__force gfp_t)___GFP_HARDWALL)
 //仅能从给定的node上分配，不能从fallback上分配，对我们好像没啥用
 #define __GFP_THISNODE	((__force gfp_t)___GFP_THISNODE)
@@ -155,7 +158,7 @@ struct vm_area_struct;
  //可以进行物理IO操作，和下面的__GFP_FS是完全不同的不同
  //__GFP_IO是可以进行IO操作，意味着可能需要等待
  //__GFP_FS是为了防止死锁，可能调用者是文件系统的代码，已经拿到了某些锁，
- //这个时候如果再进入文件系统的操作可能会导致死锁，所以就添加__GFP_FS标志
+ //这个时候如果再进入文件系统的操作可能会导致死锁，所以就去除__GFP_FS标志
  //告诉后面不能再次进入文件系统，和IO操作没有任何关系
 #define __GFP_IO	((__force gfp_t)___GFP_IO)
 //可以进行文件系统的操作
