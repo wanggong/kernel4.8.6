@@ -1738,6 +1738,7 @@ inline void post_alloc_hook(struct page *page, unsigned int order,
 				gfp_t gfp_flags)
 {
 	set_page_private(page, 0);
+	//设置refcount为1
 	set_page_refcounted(page);
 //下面的几个函数在我们的代码中都是空的
 	arch_alloc_page(page, order);
@@ -3007,6 +3008,7 @@ get_page_from_freelist(gfp_t gfp_mask, unsigned int order, int alloc_flags,
 		}//zone的watermark不ok
 
 try_this_zone:
+		//尝试从当前zone中分配
 		page = buffered_rmqueue(ac->preferred_zoneref->zone, zone, order,
 				gfp_mask, alloc_flags, ac->migratetype);
 		if (page) {
@@ -3337,6 +3339,7 @@ retry:
 	return page;
 }
 
+//这个是由分配失败唤醒的，order表示申请分配的内存
 static void wake_all_kswapds(unsigned int order, const struct alloc_context *ac)
 {
 	struct zoneref *z;
@@ -3377,6 +3380,7 @@ gfp_to_alloc_flags(gfp_t gfp_mask)
 		 * Not worth trying to allocate harder for __GFP_NOMEMALLOC even
 		 * if it can't schedule.
 		 */
+		//如果是atomic而且没有指定nomemalloc的话，使用hard
 		if (!(gfp_mask & __GFP_NOMEMALLOC))
 			alloc_flags |= ALLOC_HARDER;
 		/*
@@ -3384,6 +3388,7 @@ gfp_to_alloc_flags(gfp_t gfp_mask)
 		 * comment for __cpuset_node_allowed().
 		 */
 		alloc_flags &= ~ALLOC_CPUSET;
+	//对于rttask使用harder
 	} else if (unlikely(rt_task(current)) && !in_interrupt())
 		alloc_flags |= ALLOC_HARDER;
 
@@ -3790,7 +3795,7 @@ __alloc_pages_nodemask(gfp_t gfp_mask, unsigned int order,
 	 */
 	if (unlikely(!zonelist->_zonerefs->zone))
 		return NULL;
-//只有MOVABLE的页面才能使用CMA的内存？
+//只有MOVABLE的页面才能使用CMA的内存？是的
 	if (IS_ENABLED(CONFIG_CMA) && ac.migratetype == MIGRATE_MOVABLE)
 		alloc_flags |= ALLOC_CMA;
 
@@ -3813,6 +3818,7 @@ retry_cpuset:
 	}
 
 	/* First allocation attempt */
+	//如果第一次分配就成功的话，是不会唤醒kswapd
 	page = get_page_from_freelist(alloc_mask, order, alloc_flags, &ac);
 	if (likely(page))
 		goto out;

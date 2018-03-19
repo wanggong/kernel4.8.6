@@ -3630,11 +3630,15 @@ kswapd_try_sleep:
 /*
  * A zone is low on free memory, so wake its kswapd task to service it.
  */
+ 
+//这个是由分配失败唤醒的，order表示申请分配的内存，classzone_idx表示
+//分配内存的最大zone，意思就是希望此次回收能满足当前内存分配的需求
+//这里需要注意的是只要有一个zone是balanced的，就不会唤醒kswapd线程，因为那样就有内存可以分配
 void wakeup_kswapd(struct zone *zone, int order, enum zone_type classzone_idx)
 {
 	pg_data_t *pgdat;
 	int z;
-
+//这个地方是否会隐含有bug，如果当前zone不manager内存的话，其他zone也应该回收啊，是不?
 	if (!managed_zone(zone))
 		return;
 
@@ -3652,7 +3656,8 @@ void wakeup_kswapd(struct zone *zone, int order, enum zone_type classzone_idx)
 		if (!managed_zone(zone))
 			continue;
 //wgz 这里需要注意的是只要有一个zone是balanced的，就不会唤醒kswapd线程，因为那样就有内存可以分配
-//为何要这样，而不是只要有不balanced的就唤醒?平衡考虑?
+//为何要这样，而不是只要有不balanced的就唤醒?
+//猜测原因：memory应尽量的分配出去使用，只保留最少的用于分配，已使系统性能最优。
 		if (zone_balanced(zone, order, classzone_idx))
 			return;
 	}

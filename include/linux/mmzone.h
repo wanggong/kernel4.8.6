@@ -134,6 +134,7 @@ struct zone_padding {
 
 enum zone_stat_item {
 	/* First 128 byte cacheline (assuming 64 bit words) */
+	//´ËzoneµÄfreepagesÊıÁ¿
 	NR_FREE_PAGES,
 	NR_ZONE_LRU_BASE, /* Used only for compaction and reclaim retry */
 	NR_ZONE_INACTIVE_ANON = NR_ZONE_LRU_BASE,
@@ -455,6 +456,8 @@ lowmem_reserveÊÇ¿ÉÒÔÍ¨¹ı/proc/sys/vm/lowmem_reserve_ratioÉèÖÃµÄ
 //ÔÚSMPµÄÏµÍ³ÖĞ£¬ÓĞ´óÁ¿µÄÃ¿´ÎÉêÇëÒ»¸öpageµÄ²Ù×÷£¬Èç¹ûÃ¿´Î¶¼´ÓbuddyÏµÍ³ÖĞÉêÇë£¬¾Í
 //ĞèÒªÃ¿´Î¶¼ÒªlockºÍunlock£¬Ó°ÏìÏµÍ³ĞÔÄÜ£¬ËùÒÔÔÚÃ¿¸öcpuÉÏ¶¼ÓĞÒ»¸öÁ´±í£¬ÕâÀï±£´æÁË
 //Ò»Ğ©µ¥¸öÒ³ÃæµÄpage£¬ÔÚÉêÇëÊ±Ö±½Ó´Óµ±Ç°µÄcpuµÄÁ´±íÖĞ»ñÈ¡¾Í¿ÉÒÔÁË¡£
+//pagesetÖĞµÄpageÊÇÒÑ¾­·ÖÅäÁËµÄ£¬²»¹ÜÓÃ»§×îÖÕÓĞÃ»ÓĞ´ÓpagesetÖĞÉêÇë£¬ÔÚÍ³¼ÆÉÏÒÑ¾­²»ËãÊÇfree
+//µÄÁË
 	struct per_cpu_pageset __percpu *pageset;
 
 #ifndef CONFIG_SPARSEMEM
@@ -795,7 +798,9 @@ node_zonelists ÊÇ°´ÕÕnodeidºÍzone_idxµÄË³Ğò´Ó´óµ½Ğ¡ÅÅÁĞµÄ£¬´Óµ±Ç°node¿ªÊ¼±éÀúËùÓ
 	wait_queue_head_t pfmemalloc_wait;
 	struct task_struct *kswapd;	/* Protected by
 					   mem_hotplug_begin/end() */
+	//ÆÚÍû»ØÊÕµÄorder
 	int kswapd_order;
+	//ÆÚÍû»ØÊÕµÄ×î´ózone
 	enum zone_type kswapd_classzone_idx;
 
 #ifdef CONFIG_COMPACTION
