@@ -59,10 +59,12 @@ migratetype链表中分配。从__rmqueue_fallback可以看 出，如果从要求的migratetype
 *****************************************************************************/
 
 enum {
+//是否正常分配内存都是从这前三个分配？
 	MIGRATE_UNMOVABLE,
 	MIGRATE_MOVABLE,
 	MIGRATE_RECLAIMABLE,
 	MIGRATE_PCPTYPES,	/* the number of types on the pcp lists */
+//后面的三个区域是单独管理的
 	MIGRATE_HIGHATOMIC = MIGRATE_PCPTYPES,
 #ifdef CONFIG_CMA
 	/*
@@ -135,6 +137,7 @@ struct zone_padding {
 enum zone_stat_item {
 	/* First 128 byte cacheline (assuming 64 bit words) */
 	//此zone的freepages数量
+//在内存被分配之后减小，见 buffered_rmqueue
 	NR_FREE_PAGES,
 	NR_ZONE_LRU_BASE, /* Used only for compaction and reclaim retry */
 	NR_ZONE_INACTIVE_ANON = NR_ZONE_LRU_BASE,
@@ -164,6 +167,8 @@ enum zone_stat_item {
 	NUMA_LOCAL,		/* allocation from local node */
 	NUMA_OTHER,		/* allocation from other node */
 #endif
+//在被分配之后减小，包含在NR_FREE_PAGES中，就是说，如果DMA的内存被分配了，
+//这两个统计值都会减小。
 	NR_FREE_CMA_PAGES,
 	NR_VM_ZONE_STAT_ITEMS 
 };
@@ -426,8 +431,11 @@ ALLOC_NO_WATERMARKS。
 	unsigned long watermark[NR_WMARK];
 /********************************************************************************
 这个值可能存在bug:
-猜测其用途是为hard申请而保留的free的page，但是代码中其值为类型为MIGRATE_HIGHATOMIC的
-page的个数，具体见reserve_highatomic_pageblock和unreserve_highatomic_pageblock
+猜测其用途是为hard申请而保留的free的page，但是代码中其值为类型为 MIGRATE_HIGHATOMIC 的
+page的个数，具体见 reserve_highatomic_pageblock 和 unreserve_highatomic_pageblock
+
+新的理解：有个区域类型是 MIGRATE_HIGHATOMIC ， 当需要申请order>1而且需要atomic申请时，
+会从这个区域中申请，否则不会从这个区域中申请内存。这个type的内存数不超过当前zone的1%
 **********************************************************************************/
 	unsigned long nr_reserved_highatomic;
 

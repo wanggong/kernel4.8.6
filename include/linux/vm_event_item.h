@@ -107,6 +107,18 @@ enum vm_event_item { PGPGIN, PGPGOUT, PSWPIN, PSWPOUT,
 #else
 enum vm_event_item {
   PGPGIN, PGPGOUT, PSWPIN, PSWPOUT,
+  /*
+  下面的值会在内存被分配是增加，增加的是哪一个与具体zone有关，见 buffered_rmqueue
+  后面还有一个PGFREE的统计，因为buddy的内存是通过memblock系统free进来的，所以PGFREE
+  的值要大于PGALLOC的值，猜测PGFREE-PGALLOC=free的页面数，实际情况如下：
+	lc1861evb_arm64:/proc # cat vmstat
+	nr_free_pages 374215
+	pgalloc_dma 1877642
+	pgalloc_normal 0
+	pgalloc_movable 0
+	pgfree 2253016
+	2253016-1877642=375374,跟实际的freepage比多了1000个page左右，哪里去了？
+*/
   PGALLOC_DMA, PGALLOC_DMA32, PGALLOC_NORMAL, PGALLOC_MOVABLE,
   ALLOCSTALL_DMA, ALLOCSTALL_DMA32, ALLOCSTALL_NORMAL, ALLOCSTALL_MOVABLE,
   PGSCAN_SKIP_DMA, PGSCAN_SKIP_DMA32, PGSCAN_SKIP_NORMAL, PGSCAN_SKIP_MOVABLE,

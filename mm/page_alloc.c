@@ -1622,6 +1622,7 @@ void __init init_cma_reserved_pageblock(struct page *page)
 //这个函数的作用是:准备要分配order的内存，但是现在只有order为hight的内存
 //要将order为high的内存拆开，保留order为low的内存，然后将剩余的内存放入
 //buddy系统中，调用者将page返回，既是分配的内存了
+//注意：此时page已经从freelist中取出，
 static inline void expand(struct zone *zone, struct page *page,
 	int low, int high, struct free_area *area,
 	int migratetype)
@@ -1936,6 +1937,7 @@ static void change_pageblock_range(struct page *pageblock_page,
  * is worse than movable allocations stealing from unmovable and reclaimable
  * pageblocks.
  */
+//上面的说明没看明白
 static bool can_steal_fallback(unsigned int order, int start_mt)
 {
 	/*
@@ -1945,9 +1947,11 @@ static bool can_steal_fallback(unsigned int order, int start_mt)
 	 * but, below check doesn't guarantee it and that is just heuristic
 	 * so could be changed anytime.
 	 */
+	//如果整个pageblock都是空闲的，自然可以偷取这个pageblock
 	if (order >= pageblock_order)
 		return true;
 
+	//尽量将movable的偷取过去，why？
 	if (order >= pageblock_order / 2 ||
 		start_mt == MIGRATE_RECLAIMABLE ||
 		start_mt == MIGRATE_UNMOVABLE ||
@@ -1993,6 +1997,9 @@ static void steal_suitable_fallback(struct zone *zone, struct page *page,
  * fragmentation due to mixed migratetype pages in one pageblock.
  */
 //查找合适的后备内存
+//用order遍历fallback，
+//only_stealable=true，必须找到合适strealable的才能返回true
+//only_strealable=false,只要有合适的order就返回，can_steal返回是否可以streal
 int find_suitable_fallback(struct free_area *area, unsigned int order,
 			int migratetype, bool only_stealable, bool *can_steal)
 {
@@ -2028,7 +2035,7 @@ int find_suitable_fallback(struct free_area *area, unsigned int order,
  * Reserve a pageblock for exclusive use of high-order atomic allocations if
  * there are no empty page blocks that contain a page with a suitable order
  */
-//将page所在的migrate type标记为MIGRATE_HIGHATOMIC，同时将和page在同一个migrate type
+//将page所在的migrate type标记为 MIGRATE_HIGHATOMIC ，同时将和page在同一个migrate type
 //的其他free page移动到MIGRATE_HIGHATOMIC的free list中
 static void reserve_highatomic_pageblock(struct page *page, struct zone *zone,
 				unsigned int alloc_order)
@@ -2143,6 +2150,7 @@ __rmqueue_fallback(struct zone *zone, unsigned int order, int start_migratetype)
 		area = &(zone->free_area[current_order]);
    //从后备内存获取时，总是从尽可能大的块开始。
    //所以order的优先级要大于type
+   //注意这里stealable=false，就是说只要有内存就可以
 		fallback_mt = find_suitable_fallback(area, current_order,
 				start_migratetype, false, &can_steal);
 		if (fallback_mt == -1)
@@ -2150,6 +2158,8 @@ __rmqueue_fallback(struct zone *zone, unsigned int order, int start_migratetype)
 
 		page = list_first_entry(&area->free_list[fallback_mt],
 						struct page, lru);
+		//如果可以steal，则将page所在的pageblock_order的所有free page
+		//移到start_migratetype的freelist中
 		if (can_steal)
 			steal_suitable_fallback(zone, page, start_migratetype);
 
@@ -2182,8 +2192,20 @@ __rmqueue_fallback(struct zone *zone, unsigned int order, int start_migratetype)
  * Do the hard work of removing an element from the buddy allocator.
  * Call me with the zone->lock already held.
  */
- //从buddy系统中分配order的内存，如果当前zone不能满足分配
- //则从fallback中分配
+ /*
+ 从buddy系统中分配order的内存，如果当前zone不能满足分配
+ 则从fallback中分配,具体过程如下：
+ 1. 从当前的type中分配
+ 2. 如果是movable的，从cma中分配，但是并不更改cma中的migratetype(这个可以理解，改了以后没办法回到cma了)
+ 3. 从fallback分配
+ 	unmovable，reclaimable和movable是互为fallback，只要这三个中有任意内存能满足分配
+ 	要求，则就可以分配到内存。
+ 	分配到内存时，有可能要更改当前内存所在pageblock的migratetype，更改规则如下：
+ 	a.	如果当前是movable申请内存，则只有当streal的大于一半时才更改migratetype
+ 	b.	对于unmovable和reclaimable申请的内存，总是迁移。
+
+ 注：在这个函数的整个调用过程中是没有内存回收动作的，能分配就分配，不能分就返回Null
+ */
 static struct page *__rmqueue(struct zone *zone, unsigned int order,
 				int migratetype)
 {
@@ -2191,6 +2213,7 @@ static struct page *__rmqueue(struct zone *zone, unsigned int order,
 
 	page = __rmqueue_smallest(zone, order, migratetype);
 	if (unlikely(!page)) {
+		//如果是movable的，则首先尝试从cma中分配
 		if (migratetype == MIGRATE_MOVABLE)
 			page = __rmqueue_cma_fallback(zone, order);
 
@@ -2651,6 +2674,7 @@ struct page *buffered_rmqueue(struct zone *preferred_zone,
 		 * allocate greater than order-1 page units with __GFP_NOFAIL.
 		 */
 		WARN_ON_ONCE((gfp_flags & __GFP_NOFAIL) && (order > 1));
+		//下面的这段代码是在irq和spinlock的保护下，所以不可能进入睡眠
 		spin_lock_irqsave(&zone->lock, flags);
 
 		do {
@@ -2673,6 +2697,7 @@ struct page *buffered_rmqueue(struct zone *preferred_zone,
 					  get_pcppage_migratetype(page));
 	}
 
+	//统计zone的alloc的次数
 	__count_zid_vm_events(PGALLOC, page_zonenum(page), 1 << order);
 	zone_statistics(preferred_zone, zone, gfp_flags);
 	local_irq_restore(flags);
@@ -2769,10 +2794,19 @@ static inline bool should_fail_alloc_page(gfp_t gfp_mask, unsigned int order)
  * one free page of a suitable size. Checking now avoids taking the zone lock
  * to check in the allocation paths if no pages are free.
  */
-//检查以mark为water，分配order内存是否能成功
-//检查两个内容
-// 1. 内存总量
-// 2. 有大于order的连续内存
+/*
+检查以mark为water，分配order内存是否能成功
+检查两个内容
+ 1. 内存总量，方法：
+	a.	首先计算water的值,如果使用HIGH，则water/2，如果使用harder，则water/4.
+	b.	如果不是harder的分配，则减去为harder保存的内存 nr_reserved_highatomic
+	c.	如果不能使用cma分配，则减去为cma保留的内存。
+	d.	如果是其他区域分配内存没有拿到才到本区域分配的，减去为本区域reserve的内存
+ 2. 有大于order的连续内存
+ 	a.	因为unmovable，reclaimable，movable互为备份，所以只要这三个中有任意一个
+ 		满足要求就可以
+ 	b.	如果能从cma中分配，则检查cma的区域是否ok
+*/
 bool __zone_watermark_ok(struct zone *z, unsigned int order, unsigned long mark,
 			 int classzone_idx, unsigned int alloc_flags,
 			 long free_pages)
@@ -2831,14 +2865,19 @@ bool __zone_watermark_ok(struct zone *z, unsigned int order, unsigned long mark,
 		if (!area->nr_free)
 			continue;
 
+		//这里是否有问题，如果只有cma链表中有内存的话，即使是harder也无法分配内存啊
+		//难道hard能从cma中分配内存?
 		if (alloc_harder)
 			return true;
 
+		//前三个type(unmovable,movable,reclaimable)是互为备份的，所以只要有任意一个
+		//不是空的就可以
 		for (mt = 0; mt < MIGRATE_PCPTYPES; mt++) {
 			if (!list_empty(&area->free_list[mt]))
 				return true;
 		}
 
+		//只有movable的申请才会附加上cma的标志，这里检查cma是否有足够内存分配
 #ifdef CONFIG_CMA
 		if ((alloc_flags & ALLOC_CMA) &&
 		    !list_empty(&area->free_list[MIGRATE_CMA])) {
@@ -2917,7 +2956,7 @@ static bool zone_allows_reclaim(struct zone *local_zone, struct zone *zone)
 //从zonelist中分配内存
 //分配的顺序是:
 首先考虑的是zone，如果当前zone能满足则从当前zone分配，当前zone不能满足
-才会考虑下一个zone。
+才会考虑下一个zone(对于非numa的情况来说，这里只是没有任何回收内存的动作)。
 在当前zone能满足的情况下，首先考虑当前的migrate type，如果当前migrate type
 不能满足要求，则考虑备选的migrate type。
 总结如下:
@@ -2965,6 +3004,7 @@ get_page_from_freelist(gfp_t gfp_mask, unsigned int order, int alloc_flags,
 		 * will require awareness of nodes in the
 		 * dirty-throttling and the flusher threads.
 		 */
+		//对于非numa的情况下，这个if是空的
 		if (ac->spread_dirty_pages) {
 			if (last_pgdat_dirty_limit == zone->zone_pgdat)
 				continue;
@@ -2976,6 +3016,9 @@ get_page_from_freelist(gfp_t gfp_mask, unsigned int order, int alloc_flags,
 		}
 //根据申请的实际情况使用watermark(默认使用的low)
 		mark = zone->watermark[alloc_flags & ALLOC_WMARK_MASK];
+
+//对于单个node整个if语句的内容相当于是continue，并没有做任何事情，
+//直接尝试下一个zone
 		if (!zone_watermark_fast(zone, order, mark,
 				       ac_classzone_idx(ac), alloc_flags)) {
 			int ret;
@@ -3796,6 +3839,7 @@ __alloc_pages_nodemask(gfp_t gfp_mask, unsigned int order,
 	if (unlikely(!zonelist->_zonerefs->zone))
 		return NULL;
 //只有MOVABLE的页面才能使用CMA的内存？是的
+//只有MOVABLE的页面才能使用CMA的内存
 	if (IS_ENABLED(CONFIG_CMA) && ac.migratetype == MIGRATE_MOVABLE)
 		alloc_flags |= ALLOC_CMA;
 

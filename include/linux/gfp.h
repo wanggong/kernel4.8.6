@@ -292,12 +292,14 @@ put_page释放掉，具体事例参见: elf_core_dump 函数2301行附近代码
 #define GFP_TRANSHUGE	(GFP_TRANSHUGE_LIGHT | __GFP_DIRECT_RECLAIM)
 
 /* Convert GFP flags to their corresponding migrate type */
+
 #define GFP_MOVABLE_MASK (__GFP_RECLAIMABLE|__GFP_MOVABLE)
 #define GFP_MOVABLE_SHIFT 3
 
-//为什么只返回 ___GFP_RECLAIMABLE 跟 ___GFP_MOVABLE的组合，没明白
+//为什么只返回 ___GFP_RECLAIMABLE 跟 ___GFP_MOVABLE 的组合，没明白
 //因为在 MIGRATE_TYPES 的枚举中 ___GFP_MOVABLE=1，___GFP_RECLAIMABLE=2，
 //所以这里时可以返回这两位的，但是后面枚举怎么办？永远都不会返回？
+//怀疑正常分配内存只能是前三种，即unmovable，reclaimable，movable
 static inline int gfpflags_to_migratetype(const gfp_t gfp_flags)
 {
 	VM_WARN_ON((gfp_flags & GFP_MOVABLE_MASK) == GFP_MOVABLE_MASK);
@@ -351,7 +353,7 @@ static inline bool gfpflags_allow_blocking(const gfp_t gfp_flags)
  *       bit       result
  *       =================
  *       0x0    => NORMAL
- *       0x1    => DMA or NORMAL
+ *       0x1    => DMA or NORMAL	//1对应的应该是只有DMA，为什么还有NORMAL？因为如果HIGHMEM可能没有配置，这时就选NORMAL了
  *       0x2    => HIGHMEM or NORMAL
  *       0x3    => BAD (DMA+HIGHMEM)
  *       0x4    => DMA32 or DMA or NORMAL
@@ -366,9 +368,11 @@ static inline bool gfpflags_allow_blocking(const gfp_t gfp_flags)
  *       0xd    => BAD (MOVABLE+DMA32+DMA)
  *       0xe    => BAD (MOVABLE+DMA32+HIGHMEM)
  *       0xf    => BAD (MOVABLE+DMA32+HIGHMEM+DMA)
- *
+ *       zoneflag有4位，一共能表示16种情况，对应上面的16种组合，有效的情况一共是8种，
+ *       另外8种组合无效。
  * GFP_ZONES_SHIFT must be <= 2 on 32 bit platforms.
  */
+
 
 #if defined(CONFIG_ZONE_DEVICE) && (MAX_NR_ZONES-1) <= 4
 /* ZONE_DEVICE is not a valid GFP zone specifier */
@@ -380,8 +384,16 @@ static inline bool gfpflags_allow_blocking(const gfp_t gfp_flags)
 #if 16 * GFP_ZONES_SHIFT > BITS_PER_LONG
 #error GFP_ZONES_SHIFT too large to create GFP_ZONE_TABLE integer
 #endif
-
+/*
+这里 GFP_ZONES_SHIFT = 2
+这里的逻辑是这样的，每 GFP_ZONES_SHIFT 个bit为一个存储单位，存放对应的zone值，
+使用如下：
+对于 ZONE_NORMAL ，在对应的值为2，但是对应的flags的值是0，所以我们首先取出flags
+的值，然后将GFP_ZONE_TABLE右移flags*GFP_ZONES_SHIFT位，这时我们希望得到的就是
+ZONE_NORMAL
+*/
 #define GFP_ZONE_TABLE ( \
+	//8种有效的组合
 	(ZONE_NORMAL << 0 * GFP_ZONES_SHIFT)				       \
 	| (OPT_ZONE_DMA << ___GFP_DMA * GFP_ZONES_SHIFT)		       \
 	| (OPT_ZONE_HIGHMEM << ___GFP_HIGHMEM * GFP_ZONES_SHIFT)	       \
@@ -408,7 +420,31 @@ static inline bool gfpflags_allow_blocking(const gfp_t gfp_flags)
 	| 1 << (___GFP_MOVABLE | ___GFP_DMA32 | ___GFP_HIGHMEM)		      \
 	| 1 << (___GFP_MOVABLE | ___GFP_DMA32 | ___GFP_DMA | ___GFP_HIGHMEM)  \
 )
-//真是看不懂啊
+/*
+
+#define ___GFP_DMA		0x01u
+#define ___GFP_HIGHMEM		0x02u
+#define ___GFP_DMA32		0x04u
+#define ___GFP_MOVABLE		0x08u
+
+flags和最终对应选择的zone如下，可以注意到：movable区域仅仅当movable和high标志都置位时会被选中。
+			movable(flags3)		
+flags(0:2)	0			1
+0			NORMAL		NORMAL
+1			DMA			DMA
+2			HIGH		MOVABLE
+4			DMA32		DMA32
+
+*/
+
+/*
+这个函数的工作就是把4位的flags标志位映射到对应的zone上（可能只需要2位，假设是两位），
+4位的flags一共能表示16个数值(用i表示)，我们希望使用这个数值作为索引能直接找到我们需要的zone值，
+一个做法就是建立一个长度为16的数组(用array表示)，数组的值存放我们对应的映射值，这样我们就能直
+接使用array[i]来找到我们需要映射的值了，这里是一样的，只是每个映射的结果只需要2位，16*2=32,这样
+一个整数就能表示整个数组了。
+*/
+
 #if 0
 static inline enum zone_type gfp_zone(gfp_t flags)
 {
@@ -479,6 +515,7 @@ struct page *
 __alloc_pages_nodemask(gfp_t gfp_mask, unsigned int order,
 		       struct zonelist *zonelist, nodemask_t *nodemask);
 
+//从zonelist分配order的内存。
 static inline struct page *
 __alloc_pages(gfp_t gfp_mask, unsigned int order,
 		struct zonelist *zonelist)
@@ -505,6 +542,7 @@ __alloc_pages_node(int nid, gfp_t gfp_mask, unsigned int order)
  * prefer the current CPU's closest node. Otherwise node must be valid and
  * online.
  */
+//使用gfp_mask分配order的内存
 static inline struct page *alloc_pages_node(int nid, gfp_t gfp_mask,
 						unsigned int order)
 {
