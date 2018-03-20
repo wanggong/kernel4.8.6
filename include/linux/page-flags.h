@@ -83,7 +83,7 @@ enum pageflags {
 	PG_dirty,
 //表示page被加入到了lru中	
 	PG_lru,
-//表示page在lru的active链表中	
+//表示page在lru的active链表中或准备添加到active链表中	
 	PG_active,
 	PG_slab,
 	PG_owner_priv_1,	/* Owner use. If pagecache, fs may use*/

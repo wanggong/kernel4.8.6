@@ -17,11 +17,13 @@ enum compact_priority {
 /* When adding new states, please adjust include/trace/events/compaction.h */
 enum compact_result {
 	/* For more detailed tracepoint output - internal to compaction */
+	//返回此值表示碎片化不是元凶，不适合进行compaction
 	COMPACT_NOT_SUITABLE_ZONE,
 	/*
 	 * compaction didn't start as it was not possible or direct reclaim
 	 * was more suitable
 	 */
+	//内存不足，不适合使用compact时返回此值
 	COMPACT_SKIPPED,
 	/* compaction didn't start as it was deferred due to past failures */
 	COMPACT_DEFERRED,
@@ -52,6 +54,7 @@ enum compact_result {
 	 * direct compaction partially compacted a zone and there might be
 	 * suitable pages
 	 */
+	//返回这个表示zone中已经有能满足分配要求的内存了，不需要继续compact了
 	COMPACT_PARTIAL,
 };
 

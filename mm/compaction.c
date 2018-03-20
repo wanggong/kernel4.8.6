@@ -228,7 +228,8 @@ static inline bool isolation_suitable(struct compact_control *cc,
 	return !get_pageblock_skip(page);
 }
 
-//重新设置compaction开始扫描的开始也和获取free的开始页
+//重新设置compaction开始扫描的开始页和获取free的开始页
+//扫描的开始页从zone的第0页开始，free的开始页是zone的最后一页
 static void reset_cached_positions(struct zone *zone)
 {
 	zone->compact_cached_migrate_pfn[0] = zone->zone_start_pfn;
@@ -270,7 +271,7 @@ static void __reset_isolation_suitable(struct zone *zone)
 	reset_cached_positions(zone);
 }
 
-//调用PB_migrate_skip将pgdat的所有PB_migrate_skip标志清除，并重设compaction参数
+//调用 PB_migrate_skip 将pgdat的所有PB_migrate_skip标志清除，并重设compaction参数
 void reset_isolation_suitable(pg_data_t *pgdat)
 {
 	int zoneid;
@@ -1348,6 +1349,7 @@ static enum compact_result __compact_finished(struct zone *zone, struct compact_
 		 * flag itself as the decision to be clear should be directly
 		 * based on an allocation request.
 		 */
+		//为什么只有direct_compaction时才设置？
 		if (cc->direct_compaction)
 			zone->compact_blockskip_flush = true;
 
@@ -1705,6 +1707,9 @@ static enum compact_result compact_zone_order(struct zone *zone, int order,
 	return ret;
 }
 
+//在 /proc/sys/vm/extfrag_threshold 中调整
+//通过 fragmentation_index 计算fragment的程度，大于此值表示是因为
+//碎片化导致的不能分配内存，可以进行compaction，小于此值表示不进行compaction
 int sysctl_extfrag_threshold = 500;
 
 /**
@@ -1930,7 +1935,8 @@ static inline bool kcompactd_work_requested(pg_data_t *pgdat)
 	return pgdat->kcompactd_max_order > 0 || kthread_should_stop();
 }
 //pgdat中是否有适合compact的zone，在唤醒后台线程之前会调用这个函数检查是否
-//能compact，这里应该注意，如果有zone返回COMPACT_PARTIAL也表示不适合compact的
+//能compact，这里应该注意，如果有zone返回COMPACT_PARTIAL(不需要compaction，
+//能直接申请到所需的内存)也表示不适合compact的
 //只有某个zone返回COMPACT_CONTINUE才表示适合compact。
 static bool kcompactd_node_suitable(pg_data_t *pgdat)
 {
@@ -2030,7 +2036,17 @@ static void kcompactd_do_work(pg_data_t *pgdat)
 	if (pgdat->kcompactd_classzone_idx >= cc.classzone_idx)
 		pgdat->kcompactd_classzone_idx = pgdat->nr_zones - 1;
 }
-//唤醒pgdat的compact线程，开始compact操作
+/*
+唤醒pgdat的compact线程，开始compact操作
+判断条件如下：
+1. 遍历所有的zone，
+	a. 如果所有的zone都能直接申请到order的内存，则表示
+		内存足够，不需要compaction。
+	b. 如果所有zone的fragment_index>500，表示zone中内存
+		太少，不适合进行compaction，应该进行reclaim。
+	c. 如果有任何一个zone不满足上面的两点，则唤醒进程，进行
+		compaction动作。
+*/
 void wakeup_kcompactd(pg_data_t *pgdat, int order, int classzone_idx)
 {
 	if (!order)

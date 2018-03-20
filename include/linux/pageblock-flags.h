@@ -30,6 +30,7 @@ enum pageblock_bits {
 	PB_migrate,
 	PB_migrate_end = PB_migrate + 3 - 1,
 			/* 3 bits required for migrate types */
+	//用于表示在compaction时是否将此页skip过去。
 	PB_migrate_skip,/* If set the block is skipped by compaction */
 
 	/*

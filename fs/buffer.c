@@ -3366,8 +3366,10 @@ static struct kmem_cache *bh_cachep __read_mostly;
  * Once the number of bh's in the machine exceeds this level, we start
  * stripping them in writeback.
  */
+ //大小大概是可能用内存的10%,见 buffer_init
 static unsigned long max_buffer_heads;
 
+//buffer_head使用的内存是否超出了限制
 int buffer_heads_over_limit;
 
 struct bh_accounting {

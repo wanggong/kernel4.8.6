@@ -2093,9 +2093,9 @@ static void shrink_active_list(unsigned long nr_to_scan,
  *    1TB     101        10GB
  *   10TB     320        32GB
  */
- //判断inactive的大小是不是太小了，公式是
- //内存大小为total gb，则inactive的大小应该是
- 
+
+//inactive 和 active的应该保持在一个比例之上，如果小于这个比例，就
+//表示inactive太少了。公式见代码 
 static bool inactive_list_is_low(struct lruvec *lruvec, bool file,
 						struct scan_control *sc)
 {
@@ -2121,7 +2121,7 @@ static bool inactive_list_is_low(struct lruvec *lruvec, bool file,
 	 * deactivations are required for lowmem to be reclaimed. This
 	 * calculates the inactive/active pages available in eligible zones.
 	 */
-//只判断reclaim_idx以下的区域
+//减去reclaim_idx以上区域的统计值，剩下的就是reclaim_idx以及一下的值了
 	for (zid = sc->reclaim_idx + 1; zid < MAX_NR_ZONES; zid++) {
 		struct zone *zone = &pgdat->node_zones[zid];
 		unsigned long inactive_zone, active_zone;
@@ -2137,7 +2137,7 @@ static bool inactive_list_is_low(struct lruvec *lruvec, bool file,
 		inactive -= min(inactive, inactive_zone);
 		active -= min(active, active_zone);
 	}
-
+//应该保持的比例在这里
 	gb = (inactive + active) >> (30 - PAGE_SHIFT);
 	if (gb)
 		inactive_ratio = int_sqrt(10 * gb);
@@ -3199,7 +3199,7 @@ static void age_active_anon(struct pglist_data *pgdat,
 		memcg = mem_cgroup_iter(NULL, memcg, NULL);
 	} while (memcg);
 }
-//返回zone是否balanced，条件是freepages在高水位之上
+//返回zone是否balanced，条件是freepages在高水位之上能分配order的内存
 static bool zone_balanced(struct zone *zone, int order, int classzone_idx)
 {
 	unsigned long mark = high_wmark_pages(zone);
@@ -3225,6 +3225,7 @@ static bool zone_balanced(struct zone *zone, int order, int classzone_idx)
  */
  //对所有小于classzone_idx的zone判断是否balanced，只要有一个zone是不balanced
 //就不能睡眠，如果所有的zone都balanced，则可以进入睡眠
+//返回true：可以sleep，false：不能
 static bool prepare_kswapd_sleep(pg_data_t *pgdat, int order, int classzone_idx)
 {
 	int i;
@@ -3252,7 +3253,8 @@ static bool prepare_kswapd_sleep(pg_data_t *pgdat, int order, int classzone_idx)
 		if (!managed_zone(zone))
 			continue;
 //对所有小于classzone_idx的zone判断是否balanced，只要有一个zone是不balanced
-//就不能睡眠
+//就不能睡眠，所以这里和回收时的逻辑是不一样的，分配时只要有一个zone满足要求
+//就可以了，见 balance_pgdat
 		if (!zone_balanced(zone, order, classzone_idx))
 			return false;
 	}
@@ -3373,6 +3375,7 @@ static int balance_pgdat(pg_data_t *pgdat, int order, int classzone_idx)
 		 * is not used as buffer_heads_over_limit may have adjusted
 		 * it.
 		 */
+		 //从高到低回收，以免对低端内存造成不必要的压力
 		for (i = classzone_idx; i >= 0; i--) {
 			zone = pgdat->node_zones + i;
 			if (!managed_zone(zone))
@@ -3452,7 +3455,22 @@ out:
 	return sc.order;
 }
 
-//尝试进入sleep，sleep之前先唤醒compaction线程进行compact，然后睡眠等待被唤醒
+/*
+alloc_order：表示内存申请着希望申请到的内存order
+reclaim_order：<alloc_order,表示kswapd已经进行了一遍内存回收，回收到的最大order。
+			   =alloc_order，表示还没有进行过回收
+
+尝试进入sleep，sleep之前先唤醒compaction线程进行compact，然后睡眠等待被唤醒
+这里的逻辑是这样的：
+1. 判断是否所有的zone都能分配出reclaim_order的内存，如果可以，则表示可以睡眠。
+2. 睡眠之前使用alloc_order检查是否需要compaction，如果需要，唤醒compaction线程
+3. sleep 0.1s
+4. 如果不是被提前唤醒，再次检查是否可以睡眠，
+	a. 如果可以，真正进入睡眠
+	b. 有可能在刚才0.1s的sleep过程中又分配了内存，导致现在现在不能满足睡眠要求了
+		则不进入睡眠。
+5. 如果是被提前唤醒的，则不能睡眠。
+*/
 static void kswapd_try_to_sleep(pg_data_t *pgdat, int alloc_order, int reclaim_order,
 				unsigned int classzone_idx)
 {
@@ -3465,6 +3483,13 @@ static void kswapd_try_to_sleep(pg_data_t *pgdat, int alloc_order, int reclaim_o
 	prepare_to_wait(&pgdat->kswapd_wait, &wait, TASK_INTERRUPTIBLE);
 
 	/* Try to sleep for a short interval */
+	//如果可以，睡眠0.1s
+	//为什么这里使用的是 reclaim_order？
+	//猜测：对已第一次回收，这个值和alloc_order一样，所以如果能满足就表示能
+	//分配到合适的内存，自然可以睡眠了。
+	//如果已经回收了一次，这个值表示上次回收到的最大的order，此时不满足申请者
+	//申请的内存大小，因为刚刚回收一遍，如果立即再回收可能也是徒劳，所以这里唤醒
+	//compaction线程，看能否通过压缩获取需要的内存。
 	if (prepare_kswapd_sleep(pgdat, reclaim_order, classzone_idx)) {
 		/*
 		 * Compaction records what page blocks it recently failed to
@@ -3478,6 +3503,7 @@ static void kswapd_try_to_sleep(pg_data_t *pgdat, int alloc_order, int reclaim_o
 		 * We have freed the memory, now we should compact it to make
 		 * allocation of the requested order possible.
 		 */
+		//如果有必要，唤醒compaction线程
 		wakeup_kcompactd(pgdat, alloc_order, classzone_idx);
 
 		remaining = schedule_timeout(HZ/10);
@@ -3500,7 +3526,11 @@ static void kswapd_try_to_sleep(pg_data_t *pgdat, int alloc_order, int reclaim_o
 	 * After a short sleep, check if it was a premature sleep. If not, then
 	 * go fully to sleep until explicitly woken up.
 	 */
+	//如果不是被提前唤醒，则进入真正的睡眠，为什么要如此设计？而不是直接进入睡眠
 	if (!remaining &&
+		//这里为什么还是使用 reclaim_order，为什么不是alloc_order？
+		//是不是因为之前已经回收过一次，只能回收reclaim_order这么多，在回收也回收
+		//不上来？
 	    prepare_kswapd_sleep(pgdat, reclaim_order, classzone_idx)) {
 		trace_mm_vmscan_kswapd_sleep(pgdat->node_id);
 
@@ -3520,8 +3550,12 @@ static void kswapd_try_to_sleep(pg_data_t *pgdat, int alloc_order, int reclaim_o
 		set_pgdat_percpu_threshold(pgdat, calculate_pressure_threshold);
 	} else {
 		if (remaining)
+			//这个是说sleep不到0.1s就被唤醒了
 			count_vm_event(KSWAPD_LOW_WMARK_HIT_QUICKLY);
 		else
+			//这个是说sleep 0.1s没有被唤醒，但是内存在这个期间被分配了，
+			//或者压根没有进入到睡眠
+			//不能满足之前的要求了。
 			count_vm_event(KSWAPD_HIGH_WMARK_HIT_QUICKLY);
 	}
 	finish_wait(&pgdat->kswapd_wait, &wait);
@@ -3612,7 +3646,7 @@ kswapd_try_sleep:
   //所有的一切都是为了调用这个函数
 		reclaim_order = balance_pgdat(pgdat, alloc_order, classzone_idx);
   //wgz 这里需注意，如果本次分配没有能满足要求，不会重置alloc_order等，而是转到kswapd_try_sleep
-  //如上面说的，此函数会唤醒compacted线程，并等待100ms
+  //这样能在此函数中sleep，从而减少不必要的尝试。
 		if (reclaim_order < alloc_order)
 			goto kswapd_try_sleep;
 

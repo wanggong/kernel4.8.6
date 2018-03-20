@@ -338,7 +338,7 @@ void activate_page(struct page *page)
 	spin_unlock_irq(zone_lru_lock(zone));
 }
 #endif
-//从lru_add_pvec这个缓存查找page，设置为active
+//从 lru_add_pvec 这个缓存查找page，设置为active
 static void __lru_cache_activate_page(struct page *page)
 {
 	struct pagevec *pvec = &get_cpu_var(lru_add_pvec);

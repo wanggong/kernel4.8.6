@@ -175,7 +175,9 @@ enum zone_stat_item {
 
 enum node_stat_item {
 	NR_LRU_BASE,
+	//inactive anon pageµÄÊıÁ¿
 	NR_INACTIVE_ANON = NR_LRU_BASE, /* must match order of LRU_[IN]ACTIVE */
+	//active anon pageµÄÊıÁ¿
 	NR_ACTIVE_ANON,		/*  "     "     "   "       "         */
 	NR_INACTIVE_FILE,	/*  "     "     "   "       "         */
 	NR_ACTIVE_FILE,		/*  "     "     "   "       "         */
@@ -263,7 +265,9 @@ struct zone_reclaim_stat {
 	 *
 	 * The anon LRU stats live in [0], file LRU stats in [1]
 	 */
+	//´ÓactiveµÄlruµ½inactive lruµÄpageµÄ¸öÊı
 	unsigned long		recent_rotated[2];
+	//Ìí¼Óµ½lru pageµÄ¸öÊı
 	unsigned long		recent_scanned[2];
 };
 //least recent useage
@@ -802,7 +806,9 @@ node_zonelists ÊÇ°´ÕÕnodeidºÍzone_idxµÄË³Ğò´Ó´óµ½Ğ¡ÅÅÁĞµÄ£¬´Óµ±Ç°node¿ªÊ¼±éÀúËùÓ
 	unsigned long node_spanned_pages; /* total size of physical page
 					     range, including holes */
 	int node_id;
+	//kswapdË¯ÃßµÄµØ·½
 	wait_queue_head_t kswapd_wait;
+	//·ÖÅäÄÚ´æÃ»ÓĞ·Öµ½£¬ĞèÒªµÈ´ıµÄÏß³ÌÔÚÕâÀïË¯Ãß
 	wait_queue_head_t pfmemalloc_wait;
 	struct task_struct *kswapd;	/* Protected by
 					   mem_hotplug_begin/end() */

@@ -823,9 +823,13 @@ unsigned long node_page_state(struct pglist_data *pgdat,
 
 #ifdef CONFIG_COMPACTION
 
+//统计fragment的情况，具体见 fill_contig_page_info 
 struct contig_page_info {
+//表示zone中的空闲页面数量
 	unsigned long free_pages;
+//表示zone中空闲的块数量，如order=5，表示有32个free_page,但是只有一个块
 	unsigned long free_blocks_total;
+//当前zone能满足order的块数量
 	unsigned long free_blocks_suitable;
 };
 
@@ -837,6 +841,7 @@ struct contig_page_info {
  * migrated. Calculating that is possible, but expensive and can be
  * figured out from userspace
  */
+//统计页、块、满足order的块的数量
 static void fill_contig_page_info(struct zone *zone,
 				unsigned int suitable_order,
 				struct contig_page_info *info)
@@ -871,6 +876,10 @@ static void fill_contig_page_info(struct zone *zone,
  * The value can be used to determine if page reclaim or compaction
  * should be used
  */
+//注释很明白，翻译一下：
+//只有在内存分配失败的情况下，下面的函数才有意义，返回值用于区分内存分配失败的原因：内存不够
+//还是碎片化严重，从而决定是进行内存回收还是进行compaction
+//返回值：-1000：内存能满足order分配的要求，不需要做什么
 static int __fragmentation_index(unsigned int order, struct contig_page_info *info)
 {
 	unsigned long requested = 1UL << order;
@@ -888,6 +897,11 @@ static int __fragmentation_index(unsigned int order, struct contig_page_info *in
 	 * 0 => allocation would fail due to lack of memory
 	 * 1 => allocation would fail due to fragmentation
 	 */
+	//下面的原理没看懂，不过可以这么理解
+	//1000-info->free_pages/requested/info->free_blocks_total*1000
+	//当free_pages不变，free_blocks_total和requested减小时，返回值变小，表示内存不足，
+	//反之表示需要compaction。
+	//当free_pages变大时，返回值变小，表示内存足够，需要compaction
 	return 1000 - div_u64( (1000+(div_u64(info->free_pages * 1000ULL, requested))), info->free_blocks_total);
 }
 
