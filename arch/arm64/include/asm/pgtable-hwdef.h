@@ -165,6 +165,14 @@
 #define PTE_USER		(_AT(pteval_t, 1) << 6)		/* AP[1] */
 #define PTE_RDONLY		(_AT(pteval_t, 1) << 7)		/* AP[2] */
 #define PTE_SHARED		(_AT(pteval_t, 3) << 8)		/* SH[1:0], inner shareable */
+/*
+这个标志用于标志当前页面是否被访问过，用法如下：
+在需要判断某个页面是否最近被访问过时，调用函数 page_referenced ，返回
+被访问的次数，同时清除PTE_AF标志，这样下次访问时又会进入pagefault。
+
+当PTE_AF被清零时，在访问此pte时会导致pagefault异常，在异常中将这个标志
+设置为1，下次再访问时就不会产生异常了。 见 handle_pte_fault
+*/
 #define PTE_AF			(_AT(pteval_t, 1) << 10)	/* Access Flag */
 #define PTE_NG			(_AT(pteval_t, 1) << 11)	/* nG */
 #define PTE_DBM			(_AT(pteval_t, 1) << 51)	/* Dirty Bit Management */

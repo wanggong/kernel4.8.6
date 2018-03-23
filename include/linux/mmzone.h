@@ -150,7 +150,10 @@ enum zone_stat_item {
 	//->set_page_dirty->__set_page_dirty_buffers->__set_page_dirty->account_page_dirtied
 	NR_ZONE_WRITE_PENDING,	/* Count of dirty, writeback and unstable pages */
 	NR_MLOCK,		/* mlock()ed pages found and moved off LRU */
+	//slab中可回收的部分。调用kmem_getpages()时加上SLAB_RECLAIM_ACCOUNT标记，表明是可回收的，
+	//计入SReclaimable，否则计入SUnreclaim
 	NR_SLAB_RECLAIMABLE,
+	// slab中不可回收的部分。
 	NR_SLAB_UNRECLAIMABLE,
 	NR_PAGETABLE,		/* used for pagetables */
 	NR_KERNEL_STACK_KB,	/* measured in KiB */
@@ -182,14 +185,26 @@ enum node_stat_item {
 	NR_INACTIVE_FILE,	/*  "     "     "   "       "         */
 	NR_ACTIVE_FILE,		/*  "     "     "   "       "         */
 	NR_UNEVICTABLE,		/*  "     "     "   "       "         */
+	//临时使用的变量，在内存回收时如果inactive的lru数量太少的话，会从active
+	//lru的链表中取一些过来，取出来先放在NR_ISOLATED_ANON或NR_ISOLATED_FILE
+	//的临时链表中，然后在放入inactive链表。这个是扫描之后可以放入inactive链
+	//表的页表的数量可通过/proc/vmstat查看到。
 	NR_ISOLATED_ANON,	/* Temporary isolated pages from anon lru */
 	NR_ISOLATED_FILE,	/* Temporary isolated pages from file lru */
+	//跟上面的差不多，这个是在active的lru链表中扫描的页的数量，见 shrink_active_list
 	NR_PAGES_SCANNED,	/* pages scanned since last reclaim */
 	WORKINGSET_REFAULT,
 	WORKINGSET_ACTIVATE,
 	WORKINGSET_NODERECLAIM,
 	//anon page map的数量，在do_anonymous_page->page_add_new_anon_rmap路径中被调用。
 	NR_ANON_MAPPED,	/* Mapped anonymous pages */
+	/*
+	Page cache中(“Cached”)包含了文件的缓存页，其中有些文件当前已不在使用，
+	page cache仍然可能保留着它们的缓存页面；而另一些文件正被用户进程关联，
+	比如shared libraries、可执行程序的文件、mmap的文件等，这些文件的缓存
+	页就称为mapped。
+	【所有进程的PSS之和】 == 【NR_FILE_MAPPED + NR_ANON_MAPPED】。
+	*/
 	NR_FILE_MAPPED,	/* pagecache pages mapped into pagetables.
 			   only modified from process context */
 //buffer和cache都是在这里计算		
@@ -204,11 +219,39 @@ enum node_stat_item {
 	NR_WRITEBACK,
 	NR_WRITEBACK_TEMP,	/* Writeback using temporary buffers */
 	//shmem的page，见 shmem_add_to_page_cache ，这部分内存同时统计到 NR_FILE_PAGES 中
+/*
+/proc/meminfo中的Shmem统计的内容包括：
+shared memory
+tmpfs。
+此处所讲的shared memory又包括：
+
+SysV shared memory [shmget etc.]
+POSIX shared memory [shm_open etc.]
+shared anonymous mmap [ mmap(…MAP_ANONYMOUS|MAP_SHARED…)]
+因为shared memory在内核中都是基于tmpfs实现的，参见：
+https://www.kernel.org/doc/Documentation/filesystems/tmpfs.txt
+也就是说它们被视为基于tmpfs文件系统的内存页，既然基于文件系统，就不算匿名页，
+所以不被计入/proc/meminfo中的AnonPages，而是被统计进了：
+
+Cached (i.e. page cache)
+Mapped (当shmem被attached时候)
+然而它们背后并不存在真正的硬盘文件，一旦内存不足的时候，它们是需要交换区才能swap-out的，
+所以在LRU lists里，它们被放在：
+
+Inactive(anon) 或 Active(anon)
+注：虽然它们在LRU中被放进了anon list，但是不会被计入 AnonPages。这是shared memory & tmpfs
+比较拧巴的一个地方，需要特别注意。
+或 unevictable （如果被locked的话）
+注意：
+当shmget/shm_open/mmap创建共享内存时，物理内存尚未分配，要直到真正访问时才分配。/proc/meminfo
+中的 Shmem 统计的是已经分配的大小，而不是创建时申请的大小。
+*/
 	NR_SHMEM,		/* shmem pages (included tmpfs/GEM pages) */
 	NR_SHMEM_THPS,
 	NR_SHMEM_PMDMAPPED,
 	NR_ANON_THPS,
 	NR_UNSTABLE_NFS,	/* NFS unstable pages */
+//内存回收时，写入的页面数量，见 pageout
 	NR_VMSCAN_WRITE,
 	NR_VMSCAN_IMMEDIATE,	/* Prioritise for reclaim when writeback ends */
 //dirty的页数，调用路径之一是：
@@ -233,11 +276,19 @@ enum node_stat_item {
 #define LRU_FILE 2
 
 //一共有下面5个lru链表
+//Page cache和所有用户进程的内存（kernel stack和huge pages除外）都在LRU lists上
 enum lru_list {
 	LRU_INACTIVE_ANON = LRU_BASE,
 	LRU_ACTIVE_ANON = LRU_BASE + LRU_ACTIVE,
 	LRU_INACTIVE_FILE = LRU_BASE + LRU_FILE,
 	LRU_ACTIVE_FILE = LRU_BASE + LRU_FILE + LRU_ACTIVE,
+/*
+Unevictable LRU list上是不能pageout/swapout的内存页，包括VM_LOCKED的内存页、
+SHM_LOCK的共享内存页（又被统计在”Mlocked”中）、和ramfs。在unevictable list出
+现之前，这些内存页都在Active/Inactive lists上，vmscan每次都要扫过它们，但是又
+不能把它们pageout/swapout，这在大内存的系统上会严重影响性能，设计unevictable 
+list的初衷就是避免这种情况
+*/
 	LRU_UNEVICTABLE,
 	NR_LRU_LISTS
 };
@@ -288,10 +339,13 @@ struct lruvec {
 #define LRU_ALL	     ((1 << NR_LRU_LISTS) - 1)
 
 /* Isolate clean file */
+//只有clean的page能isolate
 #define ISOLATE_CLEAN		((__force isolate_mode_t)0x1)
 /* Isolate unmapped file */
+//只有没有map的page才能isolate
 #define ISOLATE_UNMAPPED	((__force isolate_mode_t)0x2)
 /* Isolate for asynchronous migration */
+//这个没看懂
 #define ISOLATE_ASYNC_MIGRATE	((__force isolate_mode_t)0x4)
 /* Isolate unevictable pages */
 #define ISOLATE_UNEVICTABLE	((__force isolate_mode_t)0x8)

@@ -101,12 +101,20 @@ reserved，此类page是不能换出的
 	PG_private_2,		/* If pagecache, has fs aux data */
 	PG_writeback,		/* Page is under writeback */
 	PG_head,		/* A head page */
+	//一个anon的page是否有swapcache
 	PG_swapcache,		/* Swap page: swp_entry_t in private */
 	PG_mappedtodisk,	/* Has blocks allocated on-disk */
+//在内存回收时，当此页面可以回收，但是需要先写回时，在writeback之前设置此标志，
+//这样在writeback后台写完之后判断如果有此标志，就可以将此页面回收了，见 pageout
 	PG_reclaim,		/* To be reclaimed asap */
 //此page属于swap的page，包括应用的堆，栈等都属于此,
 //在anon的pagefault是会对anon页面设置此标志，调用路径
 //do_anonymous_page->page_add_new_anon_rmap->__SetPageSwapBacked
+//最终判断一个page是加入到file_lru还是anon_lru的判断条件就是
+//这个标志，如果设置了此标志加入anon，如果没有设置此标志，则
+//加入到file_lru,见 page_lru_base_type->page_is_file_cache,
+//对于设置了PG_unevictable的page，加入到unevictable_lru,
+//所以控制加入到哪个lru的就是通过这两个标志位来判断的。
 	PG_swapbacked,		/* Page is backed by RAM/swap */
 //此page已经被加入和将要加入unevictable 的list	
 	PG_unevictable,		/* Page is "unevictable"  */

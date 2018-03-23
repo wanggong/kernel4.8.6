@@ -3667,6 +3667,7 @@ static int handle_pte_fault(struct fault_env *fe)
 			return do_wp_page(fe, entry);
 		entry = pte_mkdirty(entry);
 	}
+	//页面被访问到了，设置access的flags
 	entry = pte_mkyoung(entry);
 	if (ptep_set_access_flags(fe->vma, fe->address, fe->pte, entry,
 				fe->flags & FAULT_FLAG_WRITE)) {

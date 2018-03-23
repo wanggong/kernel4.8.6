@@ -122,7 +122,7 @@ enum vm_event_item {
   PGALLOC_DMA, PGALLOC_DMA32, PGALLOC_NORMAL, PGALLOC_MOVABLE,
   ALLOCSTALL_DMA, ALLOCSTALL_DMA32, ALLOCSTALL_NORMAL, ALLOCSTALL_MOVABLE,
   PGSCAN_SKIP_DMA, PGSCAN_SKIP_DMA32, PGSCAN_SKIP_NORMAL, PGSCAN_SKIP_MOVABLE,
-  //free的page的个数，见__free_pages_ok
+  //free的page的个数，见__free_pages_ok ， free_hot_cold_page
   PGFREE, 
   PGACTIVATE, PGDEACTIVATE,
   //系统出现pagefault的次数，在 handle_mm_fault 中加一
@@ -133,6 +133,9 @@ enum vm_event_item {
   //是发生pagefault之后需要从文件系统读入的次数（包括普通文件和swap文件）
   PGMAJFAULT,
   PGLAZYFREED,
+  //在内存回收时如果inactive的lru数量太少的话，会从active
+  //lru的链表中取一些过来，在这个过程中需要扫描active链表，这个
+  //值保存的是扫描active链表的页的数量。 见 shrink_active_list
   PGREFILL,
   PGSTEAL_KSWAPD,
   PGSTEAL_DIRECT,

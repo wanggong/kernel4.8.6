@@ -826,7 +826,7 @@ redo:
 enum page_references {
 //尝试回收    
 	PAGEREF_RECLAIM,
-//如果要回收的不是文件，则返回这个，不清楚和上面的有啥区别
+//有文件作为后备，如果是clean，则回收
 	PAGEREF_RECLAIM_CLEAN,
 //不能回收，继续保留在inactive的lru
 	PAGEREF_KEEP,
@@ -834,22 +834,35 @@ enum page_references {
 	PAGEREF_ACTIVATE,
 };
 
-//wgz 此函数返回page是否建议回收(即使不建议，也可以强制回收),有两种情况建议回收
-//1. 有VM_LOCKED，为啥?(question)
-//2. 这个页面最近没有被访问
-//此函数是有边际效应的，如果联系访问此函数两次，基本可以肯定会返回PAGEREF_RECLAIM或PAGEREF_RECLAIM_CLEAN
-//因为第一次将pte中的访问标志和PageReferenced的标志都清除了，page_referenced会返回0，
-//TestClearPageReferenced也会返回0。
-//所以进行多次内存回收可以回收到更多的内存
+/*
+wgz 此函数返回page是否建议回收(即使不建议，也可以强制回收),有两种情况建议回收
+1. 有VM_LOCKED，为啥?(question)
+2. 这个页面最近没有被访问
+此函数是有边际效应的，如果联系访问此函数两次，基本可以肯定会返回PAGEREF_RECLAIM或PAGEREF_RECLAIM_CLEAN
+因为第一次将pte中的访问标志和PageReferenced的标志都清除了，page_referenced会返回0，
+TestClearPageReferenced也会返回0。所以进行多次内存回收可以回收到更多的内存.
+
+简单总结：
+A:	当前页面在上次被扫描到之后，如果又被访问到了，就不会被回收，但是是否放到active lru
+	中分下面的几种情况：
+	1. 如果是anon，放回active lru
+	2. 如果是exec的文件，放回active
+	3. 如果在上次回收时也被访问了，即referenced_page=1，放回active
+	4. 如果本次回收之前被访问了不止一次，放回active
+	5. 其他情况放回inactive
+
+B:	当前页面在上次扫描之后没有被访问到，则建议回收。
+	1. 如果是文件页面，但是referenced_page=1，则建议只在本页面clean的情况下才回收。
+*/
 static enum page_references page_check_references(struct page *page,
 						  struct scan_control *sc)
 {
 	int referenced_ptes, referenced_page;
 	unsigned long vm_flags;
-//wgz 此页对应的页表项被访问的个数，同时清除访问标志
+//wgz 此页对应的页表项本次回收之前被访问的次数，同时清除访问标志
 	referenced_ptes = page_referenced(page, 1, sc->target_mem_cgroup,
 					  &vm_flags);
-//上次检查时此页面最近是否被访问过，并清除标志
+//上次检查时此页面上次回收之前是否被访问过，并清除标志
 	referenced_page = TestClearPageReferenced(page);
 
 	/*
@@ -861,7 +874,7 @@ static enum page_references page_check_references(struct page *page,
 		return PAGEREF_RECLAIM;
 
 	if (referenced_ptes) {
-//如果是anon的page被访问了，则不建议回收，而且放入active队列        
+		//如果是anon的page被访问了，则不建议回收，而且放入active队列        
 		if (PageSwapBacked(page))
 			return PAGEREF_ACTIVATE;
 		/*
@@ -894,7 +907,6 @@ static enum page_references page_check_references(struct page *page,
 		return PAGEREF_KEEP;
 	}
 //下面是referenced_ptes=0的情况，返回可以回收，不清楚这两者的区别
-//PageSwapBacked的页面表示是Anon的page，而且添加到swapcache中了
 	/* Reclaim if clean, defer dirty pages to writeback */
 	if (referenced_page && !PageSwapBacked(page))
 		return PAGEREF_RECLAIM_CLEAN;
@@ -1065,7 +1077,7 @@ static unsigned long shrink_page_list(struct list_head *page_list,
 		 */
 		if (PageWriteback(page)) {
 			/* Case 1 above */
-//如果页面上层被回收现在还正在回写，则认为此页是需要立即完成的，不回收，英文注释更清楚            
+//如果页面上此被回收现在还正在回写，则认为此页是需要立即完成的，不回收，英文注释更清楚            
 			if (current_is_kswapd() &&
 			    PageReclaim(page) &&
 			    test_bit(PGDAT_WRITEBACK, &pgdat->flags)) {
@@ -1246,7 +1258,7 @@ static unsigned long shrink_page_list(struct list_head *page_list,
 		 * process address space (page_count == 1) it can be freed.
 		 * Otherwise, leave the page on the LRU so it is swappable.
 		 */
-//第2.2步:清除帮在page上的buffer
+//第2.2步:清除绑在page上的buffer
 		if (page_has_private(page)) {
 			if (!try_to_release_page(page, sc->gfp_mask))
 				goto activate_locked;
@@ -2013,7 +2025,8 @@ static void shrink_active_list(unsigned long nr_to_scan,
 			putback_lru_page(page);
 			continue;
 		}
-//如果buffer的page过多，释放一些
+//如果buffer的page过多，而且此页又正好属于buffer，释放一些，
+//buffer的page可以随意释放吗？
 		if (unlikely(buffer_heads_over_limit)) {
 			if (page_has_private(page) && trylock_page(page)) {
 				if (page_has_private(page))
@@ -2021,7 +2034,7 @@ static void shrink_active_list(unsigned long nr_to_scan,
 				unlock_page(page);
 			}
 		}
-//有lte指向此page
+//此页面最近被访问过
 		if (page_referenced(page, 0, sc->target_mem_cgroup,
 				    &vm_flags)) {
 			nr_rotated += hpage_nr_pages(page);
@@ -2034,7 +2047,10 @@ static void shrink_active_list(unsigned long nr_to_scan,
 			 * IO, plus JVM can create lots of anon VM_EXEC pages,
 			 * so we ignore them here.
 			 */
-//如果是VM_EXEC类型的文件page，则放回到active的队列中，最近没有被访问也放进去?
+//如果是VM_EXEC类型的文件page，则放回到active的队列中，为什么只有exec的
+//回收到active中，其他页面不是也应该放回去吗？
+//猜测答案：网上的资料都是比较老的，现在的内核是直接从active到inactive了，
+//不再等reference清零之后在放了。
 			if ((vm_flags & VM_EXEC) && page_is_file_cache(page)) {
 				list_add(&page->lru, &l_active);
 				continue;
@@ -3192,6 +3208,7 @@ static void age_active_anon(struct pglist_data *pgdat,
 	do {
 		struct lruvec *lruvec = mem_cgroup_lruvec(pgdat, memcg);
 
+		//检查anon的inactive是否太少了，如果时，则从active中移一些过去
 		if (inactive_list_is_low(lruvec, false, sc))
 			shrink_active_list(SWAP_CLUSTER_MAX, lruvec,
 					   sc, LRU_ACTIVE_ANON);
@@ -3375,7 +3392,6 @@ static int balance_pgdat(pg_data_t *pgdat, int order, int classzone_idx)
 		 * is not used as buffer_heads_over_limit may have adjusted
 		 * it.
 		 */
-		 //从高到低回收，以免对低端内存造成不必要的压力
 		for (i = classzone_idx; i >= 0; i--) {
 			zone = pgdat->node_zones + i;
 			if (!managed_zone(zone))
@@ -3394,6 +3410,7 @@ static int balance_pgdat(pg_data_t *pgdat, int order, int classzone_idx)
 		 * about consistent aging.
 		 */
 //没有开启swap，空函数
+//为什么只考虑anon的？file的为什么不考虑呢?
 		age_active_anon(pgdat, &sc);
 
 		/*

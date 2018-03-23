@@ -685,7 +685,7 @@ void deactivate_page(struct page *page)
 		put_cpu_var(lru_deactivate_pvecs);
 	}
 }
- //将当前cpu所有缓存的page移动到合适的位置
+ //将当前cpu所有缓存的page移动到对应的lru链表上
 void lru_add_drain(void)
 {
 	lru_add_drain_cpu(get_cpu());

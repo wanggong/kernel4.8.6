@@ -2611,7 +2611,8 @@ void yield(void);
 union thread_union {
 	struct thread_info thread_info;
 //注意此数据结构是union的，所以总大小是16k，实际使用时，前面部分是thread_info，
-//后面是stack
+//后面是stack,因为thread_info位于前面，所以当stackoverflow时会首先把thread_info
+//给破换掉
 	unsigned long stack[THREAD_SIZE/sizeof(long)];
 };
 
