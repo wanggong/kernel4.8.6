@@ -480,7 +480,8 @@ unsigned long reclaim_clean_pages_from_list(struct zone *zone,
 /* Mask to get the watermark bits */
 #define ALLOC_WMARK_MASK	(ALLOC_NO_WATERMARKS-1)
 //使用harder时，water降为原来的1/4
-//首先从 MIGRATE_HIGHATOMIC type中分配，如果失败在从其他地方分配
+//首先从 MIGRATE_HIGHATOMIC type中分配，如果失败在从其他地方分配，如果是atomic分配
+//则会附加此标志
 #define ALLOC_HARDER		0x10 /* try to alloc harder */
 //使用HIGH时，water降为原来的1/2
 #define ALLOC_HIGH		0x20 /* __GFP_HIGH set */

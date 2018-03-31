@@ -278,14 +278,14 @@ struct vm_area_struct;
 #define GFP_DMA		__GFP_DMA
 #define GFP_DMA32	__GFP_DMA32
 #define GFP_HIGHUSER	(GFP_USER | __GFP_HIGHMEM)
-/*
-按英文注释，movable的memory，kernel时可以通过 kmap 访问的，但在kmap的实现中，并没有
-锁定页面的动作，如果kernel正在访问时，这个page被换出了怎么办？
-方法是先调用 get_user_pages 将内存锁定在内存中，然后调用 kmap 访问，访问之后调用
-put_page释放掉，具体事例参见: elf_core_dump 函数2301行附近代码
 
-当user发生pagefault时，默认分配的就是这种page
-*/
+//按英文注释，movable的memory，kernel时可以通过 kmap 访问的，但在kmap的实现中，并没有
+//锁定页面的动作，如果kernel正在访问时，这个page被换出了怎么办？
+//方法是先调用 get_user_pages 将内存锁定在内存中，然后调用 kmap 访问，访问之后调用
+//put_page释放掉，具体事例参见: elf_core_dump 函数2301行附近代码
+
+//当user发生pagefault时，默认分配的就是这种page
+
 #define GFP_HIGHUSER_MOVABLE	(GFP_HIGHUSER | __GFP_MOVABLE)
 #define GFP_TRANSHUGE_LIGHT	((GFP_HIGHUSER_MOVABLE | __GFP_COMP | \
 			 __GFP_NOMEMALLOC | __GFP_NOWARN) & ~__GFP_RECLAIM)

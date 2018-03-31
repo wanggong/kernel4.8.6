@@ -2651,7 +2651,9 @@ struct page *buffered_rmqueue(struct zone *preferred_zone,
 			pcp = &this_cpu_ptr(zone->pageset)->pcp;
 			list = &pcp->lists[migratetype];
 			if (list_empty(list)) {
-//pcp的migratetype的list为空，从buddy系统中分配一些页面填充pcp                
+//pcp的migratetype的list为空，从buddy系统中分配一些页面填充pcp ，
+//在 rmqueue_bulk 中会从free中减去已分配的page的数量，可见 pcp
+//的page是不在NR_FREE_CMA_PAGES中的
 				pcp->count += rmqueue_bulk(zone, 0,
 						pcp->batch, list,
 						migratetype, cold);
@@ -3027,7 +3029,8 @@ get_page_from_freelist(gfp_t gfp_mask, unsigned int order, int alloc_flags,
 			BUILD_BUG_ON(ALLOC_NO_WATERMARKS < NR_WMARK);
 			if (alloc_flags & ALLOC_NO_WATERMARKS)
 				goto try_this_zone;
-
+			//如果有多个node，则尝试下一个zone之前先尝试reclaim，尽可能的从当前node中分配，
+			//如果只有一个node，则不存在从其他node回收的情况，就暂时不reclaim
 			if (node_reclaim_mode == 0 ||
 			    !zone_allows_reclaim(ac->preferred_zoneref->zone, zone))
 				continue;
@@ -3826,7 +3829,7 @@ __alloc_pages_nodemask(gfp_t gfp_mask, unsigned int order,
 
 	lockdep_trace_alloc(gfp_mask);
 	
-	//只有设置了 __GFP_DIRECT_RECLAIM 标志才会有可能睡眠吗？
+	//只有设置了 __GFP_DIRECT_RECLAIM 标志才会有可能睡眠吗？是的
 	might_sleep_if(gfp_mask & __GFP_DIRECT_RECLAIM);
 	if (should_fail_alloc_page(gfp_mask, order))
 		return NULL;
@@ -3880,6 +3883,7 @@ retry_cpuset:
 	 */
 	if (cpusets_enabled())
 		ac.nodemask = nodemask;
+	//第一次分配失败了，然后用slowpath分配，如果slowpath也失败，那就返回失败
 	page = __alloc_pages_slowpath(alloc_mask, order, &ac);
 
 no_zone:

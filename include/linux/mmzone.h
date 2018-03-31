@@ -40,7 +40,7 @@
 
 /****************************************************************************
 可以说MIGRATE_TYPE仅仅是一种防止碎片的策略，不应该因为它的存在而影响到内存
-分配的结果，也就是说，如果在一个MIGRATE_TYPE链 表中没有内存可以分配了，那么
+分配的结果，也就是说，如果在一个MIGRATE_TYPE链表中没有内存可以分配了，那么
 也还是可以从别的链表中“暂时抢”一些的。另外，还有一个问题，内核载初始化的时
 候如何为“不可移动类”或者“可移动类”页 面指定初始大小呢？也就是说，一开始，系
 统的free_area中的这些类别链表的页面各该是多少个呢？事实上，内核从来没有指定
@@ -65,6 +65,13 @@ enum {
 	MIGRATE_RECLAIMABLE,
 	MIGRATE_PCPTYPES,	/* the number of types on the pcp lists */
 //后面的三个区域是单独管理的
+//当有HARDER标记时从HIGHATOMIC区域分配，一般的使用情况是需要atomic
+//分配内存，例如处于中断中。
+//这个zone的内存使用方式如下：当需要分配HARDER的内存时，首先从此zone中分配，如果
+//此zone中没有则从其他zone中分配，分配成功之后会将分配到的内存所在的族标记为
+//MIGRATE_HIGHATOMIC，并将当前族的free的内存移动到highatomic的freelist中，当需要分配
+//其他(非HARDER)内存时是不能从HIGHATOMIC中分配的，当内存不足时，会将HIGHATOMIC的free
+//的内存释放到其他的(movable,reclaimable等)freelist
 	MIGRATE_HIGHATOMIC = MIGRATE_PCPTYPES,
 #ifdef CONFIG_CMA
 	/*
@@ -80,6 +87,8 @@ enum {
 	 * MAX_ORDER_NR_PAGES should biggest page be bigger then
 	 * a single pageblock.
 	 */
+	//当分配movable的内存时，会首先从movable中分配，如果分配不到则在
+	//使用fallbck分配之前会先尝试从CMA中分配
 	MIGRATE_CMA,
 #endif
 #ifdef CONFIG_MEMORY_ISOLATION
@@ -365,6 +374,7 @@ enum zone_watermarks {
 #define high_wmark_pages(z) (z->watermark[WMARK_HIGH])
 
 struct per_cpu_pages {
+	//当前pcp中page的数量
 	int count;		/* number of pages in the list */
 	//high=6*batch
 	int high;		/* high watermark, emptying needed */
